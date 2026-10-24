@@ -393,10 +393,10 @@ function update(dt){
    if(alive.length&&e.x<=335){
     e.attack=(e.attack??0)-dt;
     if(e.attack<=0){
-     e.attack=1.65;
+     e.attack=1.65;e.lastAttackAt=game.time;
      const victim=alive[Math.floor(Math.random()*alive.length)];
      const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
-     victim.hp=Math.max(0,victim.hp-(game.shield>0?Math.max(2,damage*.3):damage));if(victim.hp<=0)knockoutDefender(victim);
+     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0)knockoutDefender(victim);
      game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
      if(game.rangedBursts.length>20)game.rangedBursts.shift();
      if(victim.hp<=0){feed(displayHeroName(e.user),'KO '+displayHeroName(victim.name),'#f39daa');pop(180,320,'#ff8a9d',10);}
@@ -648,7 +648,11 @@ function drawPortrait(){
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else drawEnemy(e,p.x,p.y,true);
   if(e.lastHitAt!=null&&t-e.lastHitAt<.6){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.6;rect(p.x-17,p.y-49,34,30,'#ffe79c88');text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
-  if(e.siegerHero){text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');}
+  if(e.siegerHero){
+   const swing=e.lastAttackAt!=null&&t-e.lastAttackAt<.5;
+   if(swing){const k=(t-e.lastAttackAt)/.5;ctx.save();ctx.shadowColor='#ff496d';ctx.shadowBlur=26;ctx.strokeStyle='#ff5c7b';ctx.lineWidth=7;ctx.beginPath();ctx.arc(p.x+4,p.y-23,32,-2.2+k,1.1+k);ctx.stroke();ctx.strokeStyle='#ffe5ba';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p.x+12,p.y-40);ctx.lineTo(p.x+50,p.y-64+8*k);ctx.stroke();ctx.restore();text('⚔ HIT!',p.x,p.y-90,'#ff8f9c',14,'center');}
+   text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');
+  }
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
   if(!e.worldBoss&&(e.kind==='mini'||e.kind==='dragon'||(game.enemies.length<16&&e.hp<e.maxHp))){const w=e.kind==='dragon'?96:35,yy=p.y-(e.kind==='dragon'?85:52);rect(p.x-w/2,yy,w,5,'#262235');rect(p.x-w/2,yy,w*e.hp/e.maxHp,4,'#d990a8');}
   if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
@@ -662,6 +666,7 @@ function drawPortrait(){
   const attacking=d&&d.lastAttackAt!=null&&t-d.lastAttackAt<.28; if(attacking){ctx.save();ctx.shadowColor='#80f7ff';ctx.shadowBlur=24;ctx.strokeStyle='#a2fbff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(p.x+12,p.y-19,20,-1.7,.65);ctx.stroke();ctx.restore();}
   sprite(knight,p.x-11,p.y-25,3.45,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
   if(d){
+   if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.85){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.85;rect(p.x-19,p.y-41,38,37,'#ef3d6888');text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
    if(tier>=1)rect(p.x-9,p.y-27,18,3,light);
    if(tier>=2){rect(p.x-14,p.y-19,5,9,armor);rect(p.x+10,p.y-19,5,9,armor);}
    if(tier>=3){rect(p.x-15,p.y-5,4,16,'#f6c56c');rect(p.x+12,p.y-26,3,24,'#f6c56c');}
