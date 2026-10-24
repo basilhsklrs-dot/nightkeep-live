@@ -360,6 +360,26 @@ function update(dt){
  for(const e of game.enemies){
   if(e.hp<=0){game.kills++;const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
   e.phase+=dt*5;
+  // Player siegers duel defenders before reaching the castle. A defender can be KO'd, healed by likes, and keeps XP.
+  if(e.siegerHero){
+   const alive=game.defenders.filter(d=>d.hp>0);
+   if(alive.length&&e.x<=335){
+    e.attack=(e.attack??0)-dt;
+    if(e.attack<=0){
+     e.attack=1.65;
+     const victim=alive[Math.floor(Math.random()*alive.length)];
+     const damage=Math.max(7,Math.min(38,9+(e.siegerLevel||1)*2));
+     victim.hp=Math.max(0,victim.hp-(game.shield>0?Math.max(2,damage*.3):damage));
+     game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
+     if(game.rangedBursts.length>20)game.rangedBursts.shift();
+     if(victim.hp<=0){feed(displayHeroName(e.user),'KO '+displayHeroName(victim.name),'#f39daa');pop(180,320,'#ff8a9d',10);}
+     else pop(180,320,'#f1a1af',4);
+     beep('hit');
+    }
+    if(e.x>225)e.x-=e.speed*dt;
+    continue;
+   }
+  }
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>265){e.x-=e.speed*dt;continue;}
   if(e.ranged){e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);beep('shoot');}continue;}
