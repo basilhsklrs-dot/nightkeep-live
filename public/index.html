@@ -1,11 +1,11 @@
-<!doctype html><html lang="el"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>NIGHTKEEP LIVE</title><style>html,body{margin:0;height:100%;background:#080914;color:#fff;font-family:system-ui}#game{width:100%;height:100%;display:block}#status{position:fixed;top:10px;left:10px;background:#15152ccf;padding:10px;border:1px solid #986bff;border-radius:8px;font-size:12px}button{position:fixed;right:10px;top:10px;background:#794de1;border:0;border-radius:8px;color:white;padding:12px}</style><canvas id="game"></canvas><div id="status">Σύνδεση TikTok…</div><button id="full">⛶</button><script>
+<!doctype html><html lang="el"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>NIGHTKEEP LIVE</title><style>html,body{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:#070919;color:#fff;font-family:system-ui}#game{width:100%;height:100%;display:block;touch-action:none}#status{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:12px;max-width:70vw;background:#15152cf0;padding:9px;border:1px solid #986bff;border-radius:8px;font-size:13px;z-index:4}button{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);background:#794de1;border:0;border-radius:8px;color:white;padding:12px;z-index:4}</style><canvas id="game"></canvas><div id="status">Σύνδεση TikTok…</div><button id="full">⛶</button><script>
 const c=document.getElementById('game'),x=c.getContext('2d'),s=document.getElementById('status');
-let hp=1000,shield=0,round=1,kills=0,units=[],fx=[],wave=0,live='connecting',user='@spao.mpales_',combo=1;
+let hp=1000,shield=0,round=1,kills=0,units=[],fx=[],wave=0,live='connecting',user='@aisxr0s',combo=1;
 const rng=(a,b)=>a+Math.random()*(b-a);
-function size(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+function size(){const d=Math.min(devicePixelRatio||1,2);c.width=innerWidth*d;c.height=innerHeight*d;x.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',size);size();document.getElementById('full').onclick=()=>document.documentElement.requestFullscreen?.();
 function spawn(type='goblin',count=1){for(let i=0;i<Math.min(150,count);i++)units.push({x:rng(10,innerWidth-10),y:innerHeight+rng(20,100)+i*8,h:type==='dragon'?110: type==='mini'?26:5,s:type==='dragon'?38:type==='mini'?19:11,type})}
-function event(e){if(e.type==='status'){live=e.status;user='@'+(e.streamer||'spao.mpales_');s.textContent=user+' · '+live;return}if(e.type==='like'){shield=Math.min(2000,shield+e.count);fx.push('❤️ '+e.user);return}if(e.type==='follow'){hp=Math.min(1000,hp+75);fx.push('⭐ '+e.user);return}if(e.type!=='gift')return;
+function event(e){if(e.type==='status'){live=e.status;user='@'+(e.streamer||'aisxr0s');s.textContent=user+' · '+live;return}if(e.type==='like'){shield=Math.min(2000,shield+e.count);fx.push('❤️ '+e.user);return}if(e.type==='follow'){hp=Math.min(1000,hp+75);fx.push('⭐ '+e.user);return}if(e.type!=='gift')return;
 combo=e.comboTotal||1;let n=Math.max(1,e.count||1),boost=combo>=50?2.5:combo>=20?2:combo>=10?1.5:combo>=5?1.2:1;
 if(e.action==='heal')hp=Math.min(1000,hp+160*n*boost);
 if(e.action==='shield')shield+=180*n*boost;
@@ -14,13 +14,25 @@ if(e.action==='mini')spawn('mini',n);
 if(e.action==='dragon')spawn('dragon',n);
 fx.push((e.name||e.action)+' ×'+combo+' · '+e.user);if(fx.length>6)fx.shift()}
 function connection(){let ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws');ws.onmessage=m=>{try{event(JSON.parse(m.data))}catch{}};ws.onclose=()=>{s.textContent='Επανασύνδεση…';setTimeout(connection,3000)};ws.onerror=()=>ws.close()}connection();
-let time=0;function draw(t){let dt=Math.min(0.04,(t-time)/1000||0);time=t;let w=innerWidth,h=innerHeight;x.fillStyle='#090c25';x.fillRect(0,0,w,h);
-for(let i=0;i<50;i++){let a=(i*71)%w,b=(i*137)%h;x.fillStyle='#24284d';x.fillRect(a,b,2,2)}
-let castleY=h*.23;x.fillStyle='#574f7a';x.fillRect(w*.35,castleY,w*.3,110);x.fillStyle='#8e7898';for(let i=0;i<5;i++)x.fillRect(w*.33+i*w*.075,castleY-14,w*.048,20);
-x.fillStyle='#aa57ee';x.fillRect(w*.43,castleY+40,w*.14,70);x.strokeStyle='#645890';x.lineWidth=4;x.beginPath();x.moveTo(0,castleY+110);x.lineTo(w,castleY+110);x.stroke();
-for(let i=units.length-1;i>=0;i--){let u=units[i];u.y-=dt*(12+round*2);if(Math.random()<dt*1.7)u.h-=1;if(u.h<=0){units.splice(i,1);kills++;continue}if(u.y<castleY+100){let dmg=u.type==='dragon'?45:u.type==='mini'?12:4;let blocked=Math.min(shield,dmg);shield-=blocked;hp=Math.max(0,hp-dmg+blocked);units.splice(i,1);continue}
-x.font=u.s+'px serif';x.textAlign='center';x.fillText(u.type==='dragon'?'🐉':u.type==='mini'?'👹':'👾',u.x,u.y)}
-if(kills>=round*20){kills=0;round++}if(hp===0){round=1;hp=1000;shield=0;units=[]}
-x.textAlign='left';x.fillStyle='#fff';x.font='bold 23px system-ui';x.fillText('NIGHTKEEP',15,83);x.font='15px system-ui';x.fillText('STAGE '+round+'     🏰 '+Math.round(hp)+'/1000',15,110);x.fillText('🛡️ '+Math.round(shield)+'      ⚔️ '+units.length+'     COMBO ×'+combo,15,132);
-x.fillStyle='#ff6d8a';x.fillRect(15,144,(w-30)*hp/1000,8);x.fillStyle='#fff';x.font='12px system-ui';fx.forEach((f,i)=>x.fillText(f,16,h-130+i*20));requestAnimationFrame(draw)}requestAnimationFrame(draw);
+let time=0;function draw(t){let dt=Math.min(.04,(t-time)/1000||0);time=t;let w=innerWidth,h=innerHeight;
+x.fillStyle='#070a20';x.fillRect(0,0,w,h);
+let gameW=Math.min(w,h*9/16),left=(w-gameW)/2;
+x.save();x.beginPath();x.rect(left,0,gameW,h);x.clip();x.translate(left,0);
+let sx=gameW/540,sy=h/960;x.scale(sx,sy);
+let v=x.createLinearGradient(0,0,0,960);v.addColorStop(0,'#101335');v.addColorStop(.6,'#151331');v.addColorStop(1,'#302342');x.fillStyle=v;x.fillRect(0,0,540,960);
+for(let i=0;i<65;i++){x.fillStyle=i%3?'#373058':'#6a5b7e';x.fillRect((i*83)%540,(i*149)%940,2,2)}
+x.fillStyle='#251c36';x.beginPath();x.moveTo(0,570);x.lineTo(140,490);x.lineTo(255,590);x.lineTo(415,500);x.lineTo(540,575);x.lineTo(540,960);x.lineTo(0,960);x.fill();
+for(let i=0;i<16;i++){x.fillStyle=i%2?'#382b45':'#3e304a';x.fillRect(i*37,610,25,350)}
+const y=415;x.fillStyle='#4b445f';x.fillRect(160,y,220,165);x.fillStyle='#7f7396';for(let i=0;i<5;i++)x.fillRect(153+i*49,y-24,35,38);
+x.fillStyle='#302c4b';x.fillRect(230,y+64,80,101);x.fillStyle='#a752e1';x.fillRect(243,y+75,54,90);
+x.fillStyle='#ada0bc';x.fillRect(0,576,540,10);x.strokeStyle='#645779';x.lineWidth=5;x.beginPath();x.moveTo(0,610);x.lineTo(540,610);x.stroke();
+x.textAlign='center';x.font='bold 23px system-ui';x.fillStyle='#f4e8ff';x.fillText('🏰 NIGHTKEEP',270,100);
+x.font='16px system-ui';x.fillStyle='#d1c4eb';x.fillText('STAGE '+round+'  ·  ΚΑΣΤΡΟ '+Math.round(hp)+'/1000',270,132);
+x.fillStyle='#3a2f50';x.fillRect(50,147,440,14);x.fillStyle='#ff6b92';x.fillRect(50,147,440*hp/1000,14);
+x.fillStyle='#d4e0fd';x.fillText('🛡️ '+Math.round(shield)+'    ⚔️ '+units.length+'    COMBO ×'+combo,270,190);
+for(let i=units.length-1;i>=0;i--){let u=units[i];u.y-=dt*(12+round*2)*(960/h);if(Math.random()<dt*1.7)u.h-=1;if(u.h<=0){units.splice(i,1);kills++;continue}let yy=u.y*960/h;if(yy<585){let dmg=u.type==='dragon'?45:u.type==='mini'?12:4;let blocked=Math.min(shield,dmg);shield-=blocked;hp=Math.max(0,hp-dmg+blocked);units.splice(i,1);continue}let xx=(u.x-left)*540/gameW;x.font=(u.type==='dragon'?46:u.type==='mini'?30:24)+'px serif';x.fillText(u.type==='dragon'?'🐉':u.type==='mini'?'👹':'👾',Math.max(30,Math.min(510,xx)),yy)}
+if(kills>=round*20){kills=0;round++}if(hp<=0){round=1;hp=1000;shield=0;units=[]}
+x.textAlign='left';x.font='bold 16px system-ui';x.fillStyle='#fff';fx.slice(-5).forEach((f,i)=>x.fillText(f.slice(0,42),25,825+i*26));
+x.textAlign='center';x.fillStyle='#c6abd6';x.font='13px system-ui';x.fillText('LIVE δώρα → ενέργειες σε πραγματικό χρόνο',270,946);
+x.restore();requestAnimationFrame(draw)}requestAnimationFrame(draw);
 </script></html>
