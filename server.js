@@ -107,6 +107,7 @@ export async function startServer(env = process.env) {
     if (!event) return;
     const packet = { ...event, instance, seq: ++seq, at: Date.now() };
     lastEventAt = packet.at;
+    if(packet.type==='gift') console.info(JSON.stringify({event:'gift_received',user:packet.user,displayName:packet.displayName,giftId:packet.giftId,giftName:packet.giftName,count:packet.count,coinsPerGift:packet.coins,totalCoins:(packet.coins||0)*(packet.count||1),action:packet.action,seq:packet.seq}));
     history.push(packet);
     while (history.length > 2000 || (history[0] && Date.now() - history[0].at > 300000)) history.shift();
     broadcast(packet);
