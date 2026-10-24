@@ -375,7 +375,7 @@ function update(dt){
  for(let i=0;i<game.defenders.length+3;i++){
   const d=i<3?baseDefenders[i]:game.defenders[i-3];d.cooldown-=dt*speed;
   if(d.hp!==undefined&&d.hp<=0){d.cooldown=.5;continue;}
-  if(d.cooldown<=0){d.lastAttackAt=game.time;const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0));}
+  if(d.cooldown<=0){d.lastAttackAt=game.time;const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018+Math.floor((d.level||1)/5)*.12))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0));}
  }
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
@@ -393,7 +393,7 @@ function update(dt){
    if(alive.length&&e.x<=335){
     e.attack=(e.attack??0)-dt;
     if(e.attack<=0){
-     e.attack=1.65/(1+(game.siegeBoost||0)/100);e.lastAttackAt=game.time;
+     e.attack=1.65/(1+(game.siegeBoost||0)/100+Math.floor((e.siegerLevel||1)/5)*.08);e.lastAttackAt=game.time;
      const victim=alive[Math.floor(Math.random()*alive.length)];
      const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
      const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0)knockoutDefender(victim);
@@ -605,8 +605,9 @@ function engagementExtras(dt){
  }
  const missions=[{key:'taps',value:p=>p.likes||0,target:20,bonus:35,label:'20 TAPS'},{key:'kills',value:p=>p.kills||0,target:3,bonus:55,label:'3 KILLS'},{key:'level',value:p=>heroRecord(p.user).level||1,target:3,bonus:45,label:'LEVEL 3'}];
  for(const p of (game.players||[]).slice(-150)){
+  const day=new Date().toISOString().slice(0,10);if(p.missionDay!==day){p.missionDay=day;p.missionsDone={};p.missionBaseline={likes:p.likes||0,kills:p.kills||0};}
   p.missionsDone||={};
-  for(const m of missions){if(!p.missionsDone[m.key]&&m.value(p)>=m.target){p.missionsDone[m.key]=true;heroRecord(p.user).xp+=m.bonus;feed(displayHeroName(p.user),'MISSION '+m.label+' COMPLETE +'+m.bonus+' XP','#ffdd86');}}
+  for(const m of missions){const val=m.key==='taps'?(p.likes||0)-(p.missionBaseline?.likes||0):m.key==='kills'?(p.kills||0)-(p.missionBaseline?.kills||0):m.value(p);if(!p.missionsDone[m.key]&&val>=m.target){p.missionsDone[m.key]=true;const h=heroRecord(p.user);h.xp+=m.bonus;const oldLevel=h.level||1;h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));const defender=game.defenders.find(d=>d.name===p.user);if(defender){defender.xp=h.xp;defender.level=h.level;}const attacker=game.enemies.find(e=>e.siegerHero&&e.user===p.user);if(attacker)attacker.siegerLevel=h.level;if(h.level>oldLevel)beep('level');feed(displayHeroName(p.user),'DAILY MISSION '+m.label+' +'+m.bonus+' XP','#ffdd86');}}
  }
 }
 function engagementTick(){
