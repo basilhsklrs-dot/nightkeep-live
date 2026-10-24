@@ -534,6 +534,10 @@ function drawPortrait(){
  const highlight=game.players?.length?game.players[Math.floor(t/6)%game.players.length]:null;
  if(highlight){const role=highlight.hostile>0&&!highlight.likes&&!highlight.kills?`${highlight.hostile} ΔΩΡΑ ΕΠΙΘΕΣΗΣ`:highlight.support>0&&!highlight.likes&&!highlight.kills?`${highlight.support} ΔΩΡΑ ΒΟΗΘΕΙΑΣ`:`${highlight.likes} likes · ${highlight.kills} kills`;text(`@${highlight.user.slice(0,16)} · ${role}`,240,813,'#d8e7dc',11,'center');}
  text(`TAP POWER ×${(1+game.boost/100).toFixed(2)}   ·   KILLS ${game.kills}`,240,838,'#f5cc73',13,'center');
+ // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
+ rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
+ text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+game.defenders.length,240,665,'#e7f3e8',17,'center');
+ text('FOLLOW = ΣΤΡΑΤΙΩΤΗΣ • LIKES = XP • ♥ ΜΕΛΟΥΣ = ELITE',240,692,'#f5d49a',11,'center');
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('ΤΟ ΚΑΣΤΡΟ ΕΠΕΣΕ',228,355,'#edb9c6',22,'center');text(`ΝΕΑ ΜΑΧΗ ΣΕ ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Οι υπερασπιστές επιστρέφουν.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
@@ -557,7 +561,8 @@ $('quickFullscreen').onclick=async()=>{try{if(document.fullscreenElement){await 
 document.addEventListener('fullscreenchange',()=>{$('quickFullscreen').textContent=document.fullscreenElement?'⛶ Έξοδος':'⛶ Πλήρης οθόνη'});
 $('fullscreen').onclick=async()=>{try{await document.documentElement.requestFullscreen();$('config').close();await requestWake()}catch{notice('Η πλήρης οθόνη δεν υποστηρίζεται σε αυτόν τον browser.')}};
 $('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Ήχος ON':'Ήχος OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
-window.addEventListener('pointerdown',()=>{requestWake();if(store.get('nightkeep.sound')==='1'&&!soundOn)$('audio').onclick()},{once:true});
+window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
+let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.009,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
