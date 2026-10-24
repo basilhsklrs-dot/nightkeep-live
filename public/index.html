@@ -703,6 +703,49 @@ function drawPremiumAtmosphere(t,theme){
  for(const x of [122,352]){ctx.save();ctx.translate(x,302);ctx.strokeStyle='#485267';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-39);ctx.stroke();ctx.fillStyle=x<200?'#87c4dc':'#b87083';ctx.beginPath();ctx.moveTo(0,-38);ctx.quadraticCurveTo(19+Math.sin(t*2+x)*5,-34,30,-29);ctx.lineTo(0,-23);ctx.fill();ctx.restore();}
 }
 function smallImpact(x,y,color,age){if(age<0||age>.22)return;ctx.save();ctx.globalAlpha=1-age/.22;ctx.strokeStyle=color;ctx.lineWidth=2;for(let i=0;i<4;i++){const a=i*Math.PI/2+age*5;const r=4+age*38;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r);ctx.lineTo(x+Math.cos(a)*(r+6),y+Math.sin(a)*(r+6));ctx.stroke();}ctx.restore();}
+// Fifteen-minute VISUAL ONLY showcase: no fake TikTok events, purchases or persistent players.
+const SHOWCASE_ID='nightkeep.visual-showcase.20261024';
+const SHOWCASE_LENGTH=15*60*1000;
+let showcaseEnd=Number(store.get(SHOWCASE_ID)||0);
+if(!showcaseEnd){showcaseEnd=Date.now()+SHOWCASE_LENGTH;store.set(SHOWCASE_ID,String(showcaseEnd));}
+const SHOWCASE_LEVELS=[1,5,10,20,30];
+const SHOWCASE_GIFTS=[
+ ['rose','ROSE','XP + HERO POWER / HEAL'],
+ ['heart','FINGER HEART','SHIELD / HERO BUFF'],
+ ['shadow','SUNGLASSES','STRONGER HERO ATTACK'],
+ ['cosmic','LION / UNIVERSE','EPIC HERO POWER'],
+ ['frost','ICE CREAM','SUMMON / FROST EFFECT'],
+ ['queen','DRAMA QUEEN','ELITE ATTACK EFFECT'],
+ ['goblin','COMBO x20','STACKED BONUS POWER']
+];
+function drawTimedShowcase(){
+ const left=showcaseEnd-Date.now();if(left<=0)return;
+ const elapsed=(SHOWCASE_LENGTH-left)/1000,idx=Math.floor(elapsed/9)%SHOWCASE_GIFTS.length;
+ const gift=SHOWCASE_GIFTS[idx],phase=elapsed%9;
+ // Small staged group, separate from player lists and TikTok events.
+ ctx.save();
+ rect(18,415,444,2,'#f0d397aa');
+ text('DEMO HERO EVOLUTION · SIMULATED (NO REAL GIFTS)',240,429,'#ffe3a7',10,'center');
+ for(let i=0;i<5;i++){
+  const lvl=SHOWCASE_LEVELS[i],dx=62+i*34,sx=282+i*34;
+  const pulse=phase<.24?phase:.19+(Math.sin(elapsed*2+i)*.03);
+  heroSilhouette(dx,502,'defender',lvl,pulse);
+  heroSilhouette(sx,502,'sieger',lvl,pulse);
+  text('LV'+lvl,dx,524,'#b2f4ff',10,'center');
+  text('LV'+lvl,sx,524,'#ffbdcb',10,'center');
+  if(phase<.23){smallImpact(dx+15,473,'#b2f4ff',phase);smallImpact(sx+15,473,'#ff9aae',phase);}
+ }
+ text('🛡 DEFENDERS',130,454,'#a4e9f7',13,'center');
+ text('⚔ SIEGERS',351,454,'#ffa0b7',13,'center');
+ // Both teams display the effects of the same simulated gift together.
+ drawGiftIcon(gift[0],81,554,.9);
+ text('SIMULATED '+gift[1],240,553,'#ffe5a8',13,'center');
+ text(gift[2],240,573,'#e8dff0',11,'center');
+ text('🛡 +POWER / HEAL     ⚔ +ATTACK / HP',240,592,'#f0bbd0',10,'center');
+ const seconds=Math.ceil(left/1000);
+ text('DEMO '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' · AUTO REMOVE',240,610,'#b7c9d9',10,'center');
+ ctx.restore();
+}
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
  rect(0,0,480,854,theme.sky);rect(0,135,480,180,theme.haze);rect(0,315,480,425,theme.ground);
@@ -825,7 +868,7 @@ function drawPortrait(){
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
-function draw(){if(portrait)drawPortrait();else drawLandscape();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
+function draw(){if(portrait){drawPortrait();drawTimedShowcase();}else drawLandscape();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
 let uiTimer=0;
 function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
