@@ -44,9 +44,10 @@ export class Normalizer {
       this.ids.set(key, { at: this.now() });
     }
     const user = username(d);
-    if (type === 'join') return {type:'join',user};
-    if (type === 'like') return { type: 'like', user, count: positive(d.count ?? d.likeCount) };
-    if (type === 'follow') return { type: 'follow', user, count: 1 };
+    const displayName = clean(d.user?.nickname || d.user?.displayName || d.nickname || user, 64) || user;
+    if (type === 'join') return {type:'join',user,displayName};
+    if (type === 'like') return { type: 'like', user, displayName, count: positive(d.count ?? d.likeCount) };
+    if (type === 'follow') return { type: 'follow', user, displayName, count: 1 };
     if (type !== 'gift') return null;
     const info = giftInfo(d, this.overrides);
     if (!info.action) { console.info(JSON.stringify({ ignoredGift: info.giftId, name: info.giftName })); return null; }
@@ -64,14 +65,14 @@ export class Normalizer {
       const comboId=old?.comboId||randomUUID();
       this.streaks.set(key, { at: this.now(), count: Math.max(count, old?.count || 0), ended,comboId });
       if (!delta) return null;
-      return { type: 'gift', user, count: delta,comboId,comboTotal:Math.max(count,old?.count||0), ...info };
+      return { type: 'gift', user, displayName, count: delta,comboId,comboTotal:Math.max(count,old?.count||0), ...info };
     }
     if (msgId) {
       const key = `${room}:gift:${msgId}`;
       if (this.ids.has(key)) return null;
       this.ids.set(key, { at: this.now() });
     }
-    return { type: 'gift', user, count,comboId:randomUUID(),comboTotal:count, ...info };
+    return { type: 'gift', user, displayName, count,comboId:randomUUID(),comboTotal:count, ...info };
   }
 }
 
