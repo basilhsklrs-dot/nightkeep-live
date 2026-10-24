@@ -148,7 +148,7 @@ function addDefender(name,lease=HERO_BASE_MS){
  if((game.teams||{})[id]==='sieger'){game.defenders=game.defenders.filter(v=>v.name!==id);return {name:id,xp:h.xp,level:h.level,member:h.member,activeUntil:h.activeUntil};}
  let d=game.defenders.find(v=>v.name===id);
  if(!d){if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();d={name:id,kills:h.kills||0,xp:h.xp||0,level:h.level||1,member:!!h.member,seed:Math.random(),cooldown:rnd(0,1)};game.defenders.push(d);pop(155,320,'#9ee3bd',20);feed(id,'RETURN TO BATTLE · LV'+d.level,'#9ee3bd');}
- d.activeUntil=h.activeUntil;d.level=h.level;d.xp=h.xp;d.member=h.member;d.maxHp=100+Math.min(200,(d.level-1)*8);d.hp=Math.min(d.maxHp,Math.max(0,d.hp??d.maxHp));
+ d.activeUntil=h.activeUntil;d.level=h.level;d.xp=h.xp;d.member=h.member;const oldMax=d.maxHp||100;d.maxHp=100+Math.min(650,(d.level-1)*16)+Math.min(350,h.powerBonus||0);d.hp=Math.min(d.maxHp,Math.max(0,(d.hp??oldMax)+Math.max(0,d.maxHp-oldMax)));d.powerBonus=h.powerBonus||0;
  if(!game.followIds.includes(id)){game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();}
  return d;
 }
@@ -159,7 +159,7 @@ function summonSieger(user,coins=0){
  let e=(game.enemies||[]).find(e=>e.siegerHero&&e.user===id&&e.hp>0);
  if(!e){if(game.enemies.length>=MAX_ENEMIES)return;const scale=1+Math.min(10,(h.level||1)*.25);if(!spawn('mini',.4*scale,id,'shadow'))return;e=game.enemies[game.enemies.length-1];e.siegerHero=true;e.kind='mini';e.speed=13;e.damage=30+Math.min(240,(h.level||1)*6);e.maxHp=Math.max(120,e.maxHp);e.hp=e.maxHp;feed(displayHeroName(id),'SIEGER ENTERS THE BATTLE!','#ff9ca9');}
  else {e.hp=Math.min(e.maxHp,e.hp+Math.max(20,coins*15));}
- e.siegerLevel=h.level||1;e.siegerMember=!!h.member;e.activeUntil=h.activeUntil;
+ e.siegerLevel=h.level||1;e.siegerMember=!!h.member;e.powerBonus=h.powerBonus||0;e.damage=30+(h.level||1)*9+Math.min(250,h.powerBonus||0);e.speed=13+Math.min(15,(h.level||1)*.35);e.activeUntil=h.activeUntil;
 }
 function reviveDefender(user){const id=String(user||'viewer').slice(0,64);if((game.teams||{})[id]==='sieger')return;const h=heroRecord(id);if(!h.knockedOut)return;h.knockedOut=false;const d=addDefender(id);d.hp=Math.max(35,Math.ceil((d.maxHp||100)*.45));feed(displayHeroName(id),'REVIVED BY TAP OR GIFT','#8fe2ad');pop(155,320,'#8fe2ad',24);}
 function knockoutDefender(d){if(!d||d.hp>0)return;const h=heroRecord(d.name);if(h.knockedOut)return;h.knockedOut=true;game.defenders=game.defenders.filter(v=>v.name!==d.name);feed(displayHeroName(d.name),'KO — TAP OR GIFT TO REVIVE','#ff9aab');}
@@ -169,7 +169,7 @@ function grantXp(user,amount,member=false){
  h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
  reviveDefender(id);
  const d=addDefender(id,member?120000:Math.min(240000,Math.max(90000,gain*1500)));
- d.xp=h.xp;d.level=h.level;d.member=h.member;if(d.maxHp!=null)d.hp=Math.min(d.maxHp,d.hp+Math.max(3,gain*.32));
+ d.xp=h.xp;d.level=h.level;d.member=h.member;if(d.maxHp!=null)d.hp=Math.min(d.maxHp,d.hp+Math.max(6,gain*1.2));
  if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Stronger hero`,'#f5cc73');}
 }
 function player(name){
@@ -232,13 +232,13 @@ function applyEvent(e){
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
  if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
- grantXp(e.user,count*10);
- if((game.teams||{})[e.user]==='sieger')summonSieger(e.user,Math.max(0,Number(e.coins)||0)*count);
  const assigned=(game.teams||{})[e.user]||'defender';
  const giftLedger=giftProgress(e);if(!giftLedger)return;
  const coinsPerGift=Math.max(0,Number(e.coins)||0)||(String(e.giftName||'').trim().toLowerCase()==='rose'?1:0);
  const coins=coinsPerGift*Math.max(0,(giftLedger.total*(100+giftLedger.bonus)-giftLedger.previous*(100+giftLedger.priorBonus))/100);
- if(coins>0){game.engagement||={};const tier=coins>=100?5:coins>=50?4:coins>=20?3:coins>=10?2:coins>=5?1:0;if(assigned==='sieger'){const boss=(game.enemies||[]).find(v=>v.worldBoss&&v.hp>0);if(boss){const extra=Math.min(35000,coins*(30+tier*7));boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);eventBanner={user:displayHeroName(e.user),title:'⚔ BOSS EMPOWERED +'+coins+' COINS',until:Date.now()+5000,color:'#ff93b0'};}else {enqueue(tier>=3?'mini':'fast',Math.min(tier>=3?8:30,Math.max(1,Math.ceil(coins/(tier>=3?35:3)))),e.user,tier>=3?'armored':'goblin');if(tier>=5&&game.enemies.length<MAX_ENEMIES)spawn('dragon',.8,e.user,'fire');}game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;}else{game.hp=Math.min(1000,game.hp+Math.min(800,coins*(12+tier*3)));game.shield=Math.min(60,(game.shield||0)+Math.min(25,coins*(.4+tier*.1)));game.boost=Math.min(400,game.boost+Math.min(140,coins*(2+tier*.4)));for(const d of game.defenders)if(d.maxHp)d.hp=Math.min(d.maxHp,d.hp+Math.min(75,coins*(4+tier)));game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;}player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;eventBanner={user:displayHeroName(e.user),title:(assigned==='sieger'?'⚔ SIEGER':'🛡 DEFENDER')+' · '+(e.giftName||'GIFT')+' ×'+giftLedger.total+' · '+Math.round(coins)+' COINS · TIER '+(tier+1),until:Date.now()+5200,color:assigned==='sieger'?'#ffb2c1':'#a3f3cf'};feed(displayHeroName(e.user),(assigned==='sieger'?'ATTACK':'HEAL')+' '+e.giftName+' ×'+giftLedger.total+' · '+coinsPerGift+' coins each','#e4d5a5');beep(assigned==='sieger'?'dragon':'heal');return;}
+ grantXp(e.user,Math.max(10,coins*4));const hero=heroRecord(e.user);hero.powerBonus=Math.min(350,(hero.powerBonus||0)+Math.max(1,coins*.7));
+ if(assigned==='sieger')summonSieger(e.user,coins);else {const own=game.defenders.find(d=>d.name===e.user);if(own){own.powerBonus=hero.powerBonus;own.maxHp=100+Math.min(650,(own.level-1)*16)+Math.min(350,hero.powerBonus);own.hp=Math.min(own.maxHp,own.hp+Math.max(12,coins*12));}}
+ if(coins>0){game.engagement||={};const tier=coins>=100?5:coins>=50?4:coins>=20?3:coins>=10?2:coins>=5?1:0;if(assigned==='sieger'){const boss=(game.enemies||[]).find(v=>v.worldBoss&&v.hp>0);if(boss){const extra=Math.min(35000,coins*(30+tier*7));boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);eventBanner={user:displayHeroName(e.user),title:'⚔ BOSS EMPOWERED +'+coins+' COINS',until:Date.now()+5000,color:'#ff93b0'};}else {enqueue(tier>=3?'mini':'fast',Math.min(tier>=3?8:30,Math.max(1,Math.ceil(coins/(tier>=3?35:3)))),e.user,tier>=3?'armored':'goblin');if(tier>=5&&game.enemies.length<MAX_ENEMIES)spawn('dragon',.8,e.user,'fire');}game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;}else{game.hp=Math.min(1000,game.hp+Math.min(800,coins*(12+tier*3)));game.shield=Math.min(60,(game.shield||0)+Math.min(25,coins*(.4+tier*.1)));game.boost=Math.min(400,game.boost+Math.min(140,coins*(2+tier*.4)));for(const d of game.defenders)if(d.maxHp)d.hp=Math.min(d.maxHp,d.hp+Math.min(75,coins*(4+tier)));game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;}player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;eventBanner={user:displayHeroName(e.user),title:(assigned==='sieger'?'⚔ SIEGER':'🛡 DEFENDER')+' · '+(e.giftName||'GIFT')+' ×'+giftLedger.total+' · '+Math.round(coins)+' COINS · HERO +'+Math.round(hero.powerBonus),until:Date.now()+5200,color:assigned==='sieger'?'#ffb2c1':'#a3f3cf'};feed(displayHeroName(e.user),(assigned==='sieger'?'ATTACK':'HEAL')+' '+e.giftName+' ×'+giftLedger.total+' · '+coinsPerGift+' coins each','#e4d5a5');beep(assigned==='sieger'?'dragon':'heal');return;}
  const progress=giftLedger;
  const {id,previous,total,bonus,priorBonus}=progress,c=progress.count,skin=giftSkin(e);
  const comboLabel=`COMBO ×${total} · BONUS +${bonus}%`;
@@ -351,7 +351,7 @@ function update(dt){
  for(let i=0;i<game.defenders.length+3;i++){
   const d=i<3?baseDefenders[i]:game.defenders[i-3];d.cooldown-=dt*speed;
   if(d.hp!==undefined&&d.hp<=0){d.cooldown=.5;continue;}
-  if(d.cooldown<=0){const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(3,(d.level||1)*.14+(d.kills||0)*.03))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(.8,((d.level||1)-1)*.035)+(d.member?.25:0));}
+  if(d.cooldown<=0){const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0));}
  }
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
@@ -371,7 +371,7 @@ function update(dt){
     if(e.attack<=0){
      e.attack=1.65;
      const victim=alive[Math.floor(Math.random()*alive.length)];
-     const damage=Math.max(7,Math.min(38,9+(e.siegerLevel||1)*2));
+     const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
      victim.hp=Math.max(0,victim.hp-(game.shield>0?Math.max(2,damage*.3):damage));if(victim.hp<=0)knockoutDefender(victim);
      game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
      if(game.rangedBursts.length>20)game.rangedBursts.shift();
