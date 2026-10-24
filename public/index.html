@@ -503,30 +503,22 @@ function engagementTick(){
 }
 function drawEngagementHud(){
  const z=game.engagement||{},next=LIKE_TARGETS[(z.milestone||0)%3],left=Math.max(0,Math.ceil((z.bossAt||180)-game.time));
- rect(14,467,452,35,'#131a2ab7');rect(14,467,452,2,'#ffd985');
- text('⚔ BOSS IN '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'    ♥ LIKES '+(z.likes||0)+'/'+next,240,488,'#ffe8b4',14,'center');
- text('🛡 '+(z.defenseScore||0)+'   VS   '+(z.siegeScore||0)+' ⚔',240,500,'#f2c7dc',12,'center');
+ rect(12,413,456,36,'#111827b8');rect(12,413,456,2,'#f2cd83');
+ text('BOSS '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'   ♥ '+(z.likes||0)+'/'+next+'   🛡 '+(z.defenseScore||0)+' : '+(z.siegeScore||0)+' ⚔',240,435,'#ffe5ae',13,'center');
 }
 
+function heroTier(lv){return lv>=15?4:lv>=10?3:lv>=6?2:lv>=3?1:0}
+function topHeroIds(side){return (game.players||[]).map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
 function drawLiveLeaderboards(){
- const players=game.players||[],ranking=(side)=>players.map(p=>({name:p.displayName||displayHeroName(p.user),score:side==='def'?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
- const panels=[{x:8,title:'🛡 TOP DEFENDERS',items:ranking('def'),color:'#a8eac9'},{x:246,title:'⚔ TOP SIEGERS',items:ranking('siege'),color:'#ffb6cb'}];
- for(const p of panels){rect(p.x,359,225,64,'#141c2dc7');rect(p.x,359,225,2,p.color);text(p.title,p.x+112,371,p.color,10,'center');
- for(let i=0;i<3;i++){const q=p.items[i];text(q?(i+1)+'. '+q.name.slice(0,13)+' '+q.score:(i+1)+'. —',p.x+8,385+i*12,'#e7eef1',9);}}
-}
-function heroTier(level){return level>=15?4:level>=10?3:level>=6?2:level>=3?1:0;}
-function drawHeroEquipment(x,y,level,member,side='defender',top=false){
- const tier=heroTier(level),enemy=side==='sieger',primary=enemy?'#c65664':'#75beec',metal=tier>=3?'#f5d383':tier>=2?'#cad7e4':primary;
- ctx.save();ctx.translate(x,y);
- if(tier>=2||member){ctx.globalAlpha=.18+.08*Math.sin(game.time*5);ctx.fillStyle=member?'#f578df':enemy?'#b92758':'#65c7ff';ctx.beginPath();ctx.arc(0,-14,14+tier*3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
- // Equipment and silhouette become visibly distinct at level thresholds.
- if(tier>=1){rect(-8,-28,16,7,metal);rect(-12,-19,5,13,metal);rect(7,-19,5,13,metal);}
- if(tier>=2){rect(enemy?9:-15,-12,6,19,enemy?'#d35362':'#8bd0e9');rect(enemy?13:-12,-22,3,16,'#f1e1c4');}
- if(tier>=3){poly([[-9,-21],[0,-31],[9,-21],[9,-12],[-9,-12]],enemy?'#762136':'#386b9c');rect(-11,-26,22,3,metal);}
- if(tier>=4){rect(-14,-32,28,4,'#ffd676');rect(-9,-37,5,6,'#ffd676');rect(4,-37,5,6,'#ffd676');}
- if(member){text('♥',0,-43-tier,'#ff8fd7',12,'center');}
- if(top){text(enemy?'♛':'♕',0,-52-tier,'#ffe29b',13,'center');}
- ctx.restore();
+ const def=topHeroIds('defense'),siege=topHeroIds('siege');
+ for(const [x,label,ids,color] of [[10,'🛡 TOP DEFENDERS',def,'#a8eac9'],[246,'⚔ TOP SIEGERS',siege,'#ffb6cb']]){
+  rect(x,349,224,58,'#11182db8');rect(x,349,224,2,color);
+  text(label,x+112,362,color,11,'center');
+  for(let j=0;j<3;j++){const id=ids[j],p=(game.players||[]).find(q=>q.user===id),score=p?(x===10?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20):0;
+   text(id?String(j+1)+'. '+displayHeroName(id).slice(0,13):String(j+1)+'. —',x+5,376+j*10,'#f3f0ed',9);
+   if(id)text(String(score),x+216,376+j*10,color,9,'right');
+  }
+ }
 }
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
@@ -554,13 +546,23 @@ function drawPortrait(){
   if(e.weight>1)text('×'+e.weight,p.x,p.y+25,'#f2b0cc',11,'center');
  }
  for(let i=0;i<game.defenders.length+3;i++){
-  const p=portraitDefender(i),d=i<3?null:game.defenders[i-3];
-  if(d&&(d.level>=6||d.member)){ctx.save();ctx.globalAlpha=.25+.12*Math.sin(t*4);ctx.fillStyle=d.member?'#ff62b8':d.level>=15?'#ffe18b':'#75caff';ctx.beginPath();ctx.arc(p.x,p.y-13,d.level>=15?23:17,0,Math.PI*2);ctx.fill();ctx.restore();}
-  sprite(knight,p.x-11,p.y-25,2.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
-  if(d){const top=(game.players||[]).slice().sort((a,b)=>((b.kills||0)*20+(b.support||0)*12+(b.likes||0)/10)-((a.kills||0)*20+(a.support||0)*12+(a.likes||0)/10)).slice(0,3).some(v=>v.user===d.name);drawHeroEquipment(p.x,p.y,d.level||1,!!d.member,'defender',top);}
-  if(d&&(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10)){
-   const name=(d.member?'✦ ':'')+displayHeroName(d.name).slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
-   rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ff7ac7':(d.level>=15?'#ffde83':d.level>=6?'#8ecfff':'#e3f0df'),10,'center');text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,d.member?'#ffafd7':'#a6d7bd',9,'center');
+  const p=portraitDefender(i),d=i<3?null:game.defenders[i-3],lv=d?.level||1,tier=heroTier(lv),elite=!!d?.member,top=d&&topHeroIds('defense').includes(d.name);
+  const palettes=[['#667d8b','#a5c0cf'],['#648b9e','#97c8da'],['#5375b1','#a8d8fb'],['#c5a25d','#ffe4a1'],['#e6c069','#fff3c4']];
+  const [armor,light]=palettes[tier];
+  if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
+  sprite(knight,p.x-11,p.y-25,2.8,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
+  if(d){
+   if(tier>=1)rect(p.x-9,p.y-27,18,3,light);
+   if(tier>=2){rect(p.x-14,p.y-19,5,9,armor);rect(p.x+10,p.y-19,5,9,armor);}
+   if(tier>=3){rect(p.x-15,p.y-5,4,16,'#f6c56c');rect(p.x+12,p.y-26,3,24,'#f6c56c');}
+   if(tier>=4){rect(p.x-7,p.y-34,14,4,'#ffd878');rect(p.x-5,p.y-38,3,5,'#ffd878');rect(p.x+3,p.y-38,3,5,'#ffd878');}
+   if(elite){rect(p.x-12,p.y-7,4,19,'#e655a9');rect(p.x+9,p.y-7,4,19,'#e655a9');}
+   if(top)text('♛',p.x,p.y-45,'#ffdf83',15,'center');
+   if(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10){
+    const name=(elite?'♥ ':'')+displayHeroName(d.name).slice(0,10)+' LV'+lv,yy=p.y-40-(i%2)*15;
+    rect(p.x-name.length*3-4,yy-9,name.length*6+8,15,'#17262cbd');text(name,p.x,yy,elite?'#ffafd7':light,10,'center');
+    text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,light,9,'center');
+   }
   }
  }
  for(const shot of game.shots){
@@ -586,7 +588,7 @@ function drawPortrait(){
  rect(47,114,360,11,'#060b14');rect(49,116,356*Math.max(0,game.hp)/1000,7,game.hp<260?'#df8f9f':'#8fe2ad');
  drawGiftGuide();
  // TikTok-safe high-contrast call to action, shown above the action area.
- rect(14,302,452,48,'#12172ded');rect(14,302,452,3,'#f5cc73');
+ rect(14,301,452,45,'#12172dcb');rect(14,302,452,3,'#f5cc73');
  text('⚔ FOLLOW = JOIN AS HERO',240,320,'#fff1bd',14,'center');
  text('💗 MEMBER HEART = ELITE BUFF',240,340,'#ffb8db',12,'center');
  drawLiveLeaderboards();drawEngagementHud();
