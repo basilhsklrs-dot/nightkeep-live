@@ -196,6 +196,7 @@ function empowerBosses(id,bonus){
 }
 function applyEvent(e){
  const count=clamp(Number(e.count)||1,1,100000);
+ if(e.type==='join'){const name=String(e.user||'θεατή').slice(0,40);eventBanner={user:'@'+name,title:'ΚΑΛΩΣ ΗΡΘΕΣ! ΠΑΡΕ ΜΕΡΟΣ ΣΤΗ ΜΑΧΗ ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Καλώς ήρθες! Κάνε FOLLOW για δικό σου στρατιώτη.','#a9e4c0');return;}
  if(e.type==='like'){game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){eventBanner={user:e.user,title:'ΝΕΟΣ ΥΠΕΡΑΣΠΙΣΤΗΣ',until:Date.now()+5500,color:'#8fe2ad'};addDefender(e.user);feed(e.user,'πήρε θέση στην άμυνα.','#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ ΚΑΡΔΙΑ ΜΕΛΟΥΣ — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
