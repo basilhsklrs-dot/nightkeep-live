@@ -375,12 +375,12 @@ function update(dt){
  for(let i=0;i<game.defenders.length+3;i++){
   const d=i<3?baseDefenders[i]:game.defenders[i-3];d.cooldown-=dt*speed;
   if(d.hp!==undefined&&d.hp<=0){d.cooldown=.5;continue;}
-  if(d.cooldown<=0){const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0));}
+  if(d.cooldown<=0){d.lastAttackAt=game.time;const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0));}
  }
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
   const dx=s.target.x-s.x,dy=s.target.y-13-s.y,dist=Math.hypot(dx,dy);
-  if(dist<dt*310+8){s.target.hp-=s.damage;s.target.lastHitOwner=s.owner;s.life=0;pop(s.target.x,s.target.y-10,'#f5cc73',3);}
+  if(dist<dt*310+8){s.target.lastHitAt=game.time;s.target.lastHitDamage=Math.round(s.damage);s.target.hp-=s.damage;s.target.lastHitOwner=s.owner;s.life=0;pop(s.target.x,s.target.y-10,'#f5cc73',3);}
   else{s.x+=dx/dist*310*dt;s.y+=dy/dist*310*dt;}
  }
  game.shots=game.shots.filter(s=>s.life>0);
@@ -555,7 +555,7 @@ function drawLandscape(){
 
 // Native 9:16 composition. Game coordinates are projected onto a vertical route;
 // simulation, damage, timing and TikTok events are shared with the landscape view.
-function portraitEnemy(e){return{x:e.kind==='dragon'?240+(e.y-310)*2:122+(e.y-346)*4.5,y:580-(e.x-164)*.72};}
+function portraitEnemy(e){return{x:e.kind==='dragon'?240+(e.y-310)*2:122+(e.y-346)*4.5,y:460-(e.x-164)*.53};}
 function drawWorldBoss(e,x,y){
  const pulse=1+.06*Math.sin(game.time*4);
  ctx.save();ctx.translate(x,y-27);ctx.scale(pulse,pulse);
@@ -574,7 +574,7 @@ function drawWorldBoss(e,x,y){
  for(let i=0;i<5;i++){const angle=game.time*1.1+i*Math.PI*2/5;rect(Math.cos(angle)*80-4,Math.sin(angle)*55-12,9,9,i%2?'#f7cd72':'#ff629e');}
  ctx.restore();
 }
-function portraitDefender(i){if(i<3)return{x:180+i*60,y:590};const j=i-3;return{x:82+(j%9)*36,y:565-Math.floor(j/9)*28};}
+function portraitDefender(i){if(i<3)return{x:180+i*60,y:520};const j=i-3;return{x:82+(j%9)*36,y:495-Math.floor(j/9)*28};}
 function displayHeroName(id){const nick=(game.displayNames||{})[id]||(game.players||[]).find(p=>p.user===id)?.displayName||game.heroes?.[id]?.displayName||(game.defenders||[]).find(d=>d.name===id)?.displayName;return String(nick||id||'Player').replace(/^@/,'').slice(0,18)}
 
 // Engagement systems: free milestones, timed bosses, fair teams, hero visual tiers.
@@ -646,6 +646,7 @@ function drawPortrait(){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else drawEnemy(e,p.x,p.y,true);
+  if(e.lastHitAt!=null&&t-e.lastHitAt<.6){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.6;rect(p.x-17,p.y-49,34,30,'#ffe79c88');text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');}
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
@@ -658,7 +659,8 @@ function drawPortrait(){
   const palettes=[['#667d8b','#a5c0cf'],['#648b9e','#97c8da'],['#5375b1','#a8d8fb'],['#c5a25d','#ffe4a1'],['#e6c069','#fff3c4']];
   const [armor,light]=palettes[tier];
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
-  sprite(knight,p.x-11,p.y-25,2.8,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
+  const attacking=d&&d.lastAttackAt!=null&&t-d.lastAttackAt<.28; if(attacking){ctx.save();ctx.shadowColor='#80f7ff';ctx.shadowBlur=24;ctx.strokeStyle='#a2fbff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(p.x+12,p.y-19,20,-1.7,.65);ctx.stroke();ctx.restore();}
+  sprite(knight,p.x-11,p.y-25,3.45,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
   if(d){
    if(tier>=1)rect(p.x-9,p.y-27,18,3,light);
    if(tier>=2){rect(p.x-14,p.y-19,5,9,armor);rect(p.x+10,p.y-19,5,9,armor);}
@@ -720,11 +722,11 @@ function drawPortrait(){
    ['heart','FREE TAPS → XP + HEAL + REVIVE']
   ];
   const tip=tips[Math.floor(t/5)%tips.length];
-  rect(16,727,448,82,'#111827e8');rect(16,727,448,2,'#f3c777');
-  text('❤️ TAP TO FIGHT — FREE!  ·  GIFTS = EXTRA POWER',240,746,'#f4d58a',11,'center');
-  drawGiftIcon(tip[0],34,762,.85);
-  text(tip[1],251,769,'#ecf4e9',12,'center');
-  text('1 = DEFENDER   🛡     2 = SIEGER ⚔',240,791,'#a6dfca',12,'center');
+  rect(28,354,424,65,'#111827ec');rect(28,354,424,3,'#f3c777');
+  text('❤️ TAP TO FIGHT FREE · GIFTS POWER UP HERO',240,373,'#f4d58a',12,'center');
+  drawGiftIcon(tip[0],59,391,.7);
+  text(tip[1],260,393,'#ecf4e9',12,'center');
+  text('TYPE 1 DEFENDER 🛡  /  2 SIEGER ⚔',240,410,'#a6dfca',11,'center');
  }
  const highlight=game.players?.length?game.players[Math.floor(t/6)%game.players.length]:null;
  if(highlight){const role=highlight.hostile>0&&!highlight.likes&&!highlight.kills?`${highlight.hostile} ATTACK GIFTS`:highlight.support>0&&!highlight.likes&&!highlight.kills?`${highlight.support} SUPPORT GIFTS`:`${highlight.likes} likes · ${highlight.kills} kills`;text(`@${highlight.user.slice(0,16)} · ${role}`,240,813,'#d8e7dc',11,'center');}
@@ -732,7 +734,7 @@ function drawPortrait(){
  // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
  rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
  text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+game.defenders.length,240,665,'#e7f3e8',17,'center');
- text('❤️ TAP TO JOIN FREE · MORE TAPS = STRONGER HERO',240,692,'#f5d49a',13,'center');
+ text('LIVE BATTLE · TAP ❤️ TO LEVEL UP',240,692,'#f5d49a',13,'center');
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
