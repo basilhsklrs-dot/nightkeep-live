@@ -145,6 +145,7 @@ function heroRecord(name){const id=String(name||'viewer').slice(0,64);game.heroe
 function addDefender(name,lease=HERO_BASE_MS){
  const id=String(name||'viewer').slice(0,64),h=heroRecord(id),now=Date.now();
  h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+lease,now+HERO_MAX_MS);
+ if((game.teams||{})[id]==='sieger'){game.defenders=game.defenders.filter(v=>v.name!==id);return {name:id,xp:h.xp,level:h.level,member:h.member,activeUntil:h.activeUntil};}
  let d=game.defenders.find(v=>v.name===id);
  if(!d){if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();d={name:id,kills:h.kills||0,xp:h.xp||0,level:h.level||1,member:!!h.member,seed:Math.random(),cooldown:rnd(0,1)};game.defenders.push(d);pop(155,320,'#9ee3bd',20);feed(id,'RETURN TO BATTLE · LV'+d.level,'#9ee3bd');}
  d.activeUntil=h.activeUntil;d.level=h.level;d.xp=h.xp;d.member=h.member;
@@ -212,7 +213,7 @@ function empowerBosses(id,bonus){
 function applyEvent(e){
  if(e.user&&e.displayName){const id=String(e.user).slice(0,64),nick=String(e.displayName).slice(0,64);game.displayNames ||= {};game.displayNames[id]=nick;const p=(game.players||[]).find(v=>v.user===id);if(p)p.displayName=nick;const h=game.heroes?.[id];if(h)h.displayName=nick;const d=(game.defenders||[]).find(v=>v.name===id);if(d)d.displayName=nick;}
  const count=clamp(Number(e.count)||1,1,100000);
- if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
+ if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger')game.defenders=game.defenders.filter(d=>d.name!==e.user);eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
  if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);eventBanner={user:'@'+name,title:'WELCOME! FOLLOW TO JOIN THE BATTLE ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Welcome! FOLLOW to join the battle as your own hero!','#a9e4c0');return;}
  if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
@@ -311,7 +312,7 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,displayNames:old.displayNames,engagement:old.engagement,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,jobs:old.jobs,boost:old.boost,shield:old.shield});
  feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
 }
 function update(dt){
