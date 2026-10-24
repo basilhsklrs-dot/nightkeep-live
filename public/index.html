@@ -114,7 +114,7 @@ function beep(kind){
  if(!soundOn||!audioContext||audioContext.state!=='running'||performance.now()-lastSound<55)return;
  lastSound=performance.now();const a=audioContext,t=a.currentTime,o=a.createOscillator(),v=a.createGain();
  const frequencies={level:1100,stage:960,combo:1240,shoot:760,hit:140,heal:520,shield:900,follow:660,dragon:65,fall:100,wave:180,mini:110};
- o.type=kind==='dragon'?'sawtooth':'square';o.frequency.setValueAtTime(frequencies[kind]||300,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,(frequencies[kind]||300)*.5),t+.12);v.gain.setValueAtTime(.035,t);v.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(v);v.connect(a.destination);o.start(t);o.stop(t+.18);
+ o.type=kind==='dragon'?'sawtooth':'square';o.frequency.setValueAtTime(frequencies[kind]||300,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,(frequencies[kind]||300)*.5),t+.12);v.gain.setValueAtTime(.095,t);v.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(v);v.connect(a.destination);o.start(t);o.stop(t+.18);
 }
 async function requestWake(){
  if(wakePending||document.visibilityState!=='visible'||!('wakeLock'in navigator))return;
@@ -595,7 +595,17 @@ $('fullscreen').onclick=async()=>{try{await document.documentElement.requestFull
 $('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Sound ON';$('quickSound').textContent='🔊 Sound ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.85'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
 $('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Sound ON':'Sound OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
 window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn||audioContext?.state!=='running'){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Sound ON';$('quickSound').textContent='🔊 Sound ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
-let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.042,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
+// Stronger, phone-speaker-friendly two-voice soundtrack; compression prevents peaks clipping.
+let musicStep=0,musicBus=null,musicBusContext=null;
+function getMusicBus(){if(musicBus&&musicBusContext===audioContext)return musicBus;const c=audioContext.createDynamicsCompressor();c.threshold.value=-18;c.knee.value=14;c.ratio.value=5;c.attack.value=.008;c.release.value=.18;c.connect(audioContext.destination);musicBus=c;musicBusContext=audioContext;return c;}
+setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;
+ const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;
+ for(const [mult,volume,wave] of [[1,.18,'sawtooth'],[2,.045,'triangle']]){
+  const osc=a.createOscillator(),gain=a.createGain();osc.type=wave;osc.frequency.value=note*mult;
+  gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(volume,now+.035);
+  gain.gain.exponentialRampToValueAtTime(.0001,now+.58);osc.connect(gain);gain.connect(getMusicBus());osc.start(now);osc.stop(now+.61);
+ }
+},650);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
