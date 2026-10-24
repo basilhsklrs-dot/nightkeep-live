@@ -706,7 +706,7 @@ function drawPortrait(){
  // TikTok-safe high-contrast call to action, shown above the action area.
  rect(14,153,452,46,'#12172dcc');rect(14,153,452,3,'#f5cc73');
  text('1 = DEFENDER  🛡     2 = SIEGER ⚔',240,170,'#fff1bd',14,'center');
- text('❤️ TAP TO JOIN FREE · TYPE 1 OR 2',240,189,'#ffb8db',13,'center');
+ text('❤️ TAP FREE → LEVEL UP · POWER ×'+(1+game.boost/100).toFixed(2),240,189,'#ffcf78',15,'center');
  drawLiveLeaderboards();drawEngagementHud();
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
