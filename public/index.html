@@ -170,7 +170,7 @@ function grantXp(user,amount,member=false){
  reviveDefender(id);
  const d=addDefender(id,member?120000:Math.min(240000,Math.max(90000,gain*1500)));
  d.xp=h.xp;d.level=h.level;d.member=h.member;if(d.maxHp!=null)d.hp=Math.min(d.maxHp,d.hp+Math.max(6,gain*1.2));
- if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Stronger hero`,'#f5cc73');}
+ if(h.level>old){if([5,10,20,30].some(n=>old<n&&h.level>=n))game.featureAnnouncement={title:displayHeroName(id)+' EVOLVED!',detail:'LEVEL '+h.level+' · NEW ARMOR + SKILL',until:Date.now()+2000};beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Stronger hero`,'#f5cc73');}
 }
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
@@ -227,7 +227,7 @@ function applyEvent(e){
  const count=clamp(Number(e.count)||1,1,100000);
  if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger'){game.defenders=game.defenders.filter(d=>d.name!==e.user);summonSieger(e.user);}else{game.enemies=game.enemies.filter(v=>!(v.siegerHero&&v.user===e.user));addDefender(e.user);}eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
  if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);if(!game.lastJoinBanner||Date.now()-game.lastJoinBanner>7000){game.lastJoinBanner=Date.now();eventBanner={user:name,title:'FREE TO PLAY! TAP ❤️ + TYPE 1 OR 2',until:Date.now()+5500,color:'#a9e4c0'};}return;}
- if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+((game.teams||{})[e.user]==='sieger'?0:count*.6));game.siegeBoost=Math.min(400,(game.siegeBoost||0)+((game.teams||{})[e.user]==='sieger'?count*.6:0));player(e.user).likes+=count;grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
+ if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.siegeScore=(game.engagement.siegeScore||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.engagement.clashDefense=(game.engagement.clashDefense||0)+((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.clashSiege=(game.engagement.clashSiege||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.boost=Math.min(400,game.boost+((game.teams||{})[e.user]==='sieger'?0:count*(game.engagement?.lastStandActive?1.2:.6)));game.siegeBoost=Math.min(400,(game.siegeBoost||0)+((game.teams||{})[e.user]==='sieger'?count*(game.engagement?.lastStandActive?1.2:.6):0));player(e.user).likes+=count;grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);if(game.teams[e.user]==='sieger')summonSieger(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(displayHeroName(e.user),'joined '+(game.teams[e.user]==='sieger'?'siegers':'defenders'),'#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
@@ -351,8 +351,8 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({ranged:kind==='fast',projectileCooldown:1.5,kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,jobs:old.jobs,boost:old.boost,shield:old.shield});
- feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
+ const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,siegeBoost:old.siegeBoost,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const dp=(old.players||[]).filter(p=>(old.teams||{})[p.user]!=='sieger').sort((a,b)=>(b.kills||0)-(a.kills||0))[0],sp=(old.players||[]).filter(p=>(old.teams||{})[p.user]==='sieger').sort((a,b)=>(b.likes||0)-(a.likes||0))[0];game.featureAnnouncement={title:'🏆 ROUND MVP',detail:'🛡 '+(dp?displayHeroName(dp.user):'—')+'   ⚔ '+(sp?displayHeroName(sp.user):'—'),until:Date.now()+2800};feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
 }
 function update(dt){
  if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>{if(!Number.isFinite(d.activeUntil)||d.activeUntil<=0){d.activeUntil=now+HERO_BASE_MS;const h=heroRecord(d.name);h.activeUntil=d.activeUntil;}return d.activeUntil>now;});}
@@ -360,7 +360,7 @@ function update(dt){
   if(!game.deadUntil){game.deadUntil=Date.now()+5000;pop(95,315,'#ffae69',60);beep('fall');save();}
   if(Date.now()>=game.deadUntil)resetRound();return;
  }
- engagementTick();
+ engagementTick();engagementExtras(dt);
  game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=1+Math.floor(game.time/35);game.best=Math.max(game.best,game.wave);
  game.boost=Math.max(0,game.boost-dt*(4+game.boost*.08));game.siegeBoost=Math.max(0,(game.siegeBoost||0)-dt*(4+(game.siegeBoost||0)*.08));game.shield=Math.max(0,game.shield-dt);game.flash=Math.max(0,game.flash-dt);game.shake=Math.max(0,game.shake-dt*2);
  game.spawn-=dt;if(game.spawn<=0){game.spawnNumber=(game.spawnNumber||0)+1;spawn(game.spawnNumber%5===0?'fast':'normal');game.spawn=Math.max(.6,3.2-game.wave*.13);}
@@ -385,7 +385,7 @@ function update(dt){
  }
  game.shots=game.shots.filter(s=>s.life>0);
  for(const e of game.enemies){
-  if(e.hp<=0){game.kills++;const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
+  if(e.hp<=0){game.kills++;if(e.worldBoss){game.engagement||={};game.engagement.bossActive=false;game.engagement.bossHasSpawned=false;game.engagement.bossWins=(game.engagement.bossWins||0)+1;game.hp=Math.min(1000,game.hp+90);game.featureAnnouncement={title:'BOSS RAID VICTORY!',detail:'DEFENDERS +90 CASTLE HP',until:Date.now()+2500};}const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
   e.phase+=dt*5;
   // Player siegers duel defenders before reaching the castle. A defender can be KO'd, healed by likes, and keeps XP.
   if(e.siegerHero){
@@ -579,6 +579,36 @@ function displayHeroName(id){const nick=(game.displayNames||{})[id]||(game.playe
 
 // Engagement systems: free milestones, timed bosses, fair teams, hero visual tiers.
 const LIKE_TARGETS=[100,500,1000]; 
+
+// Engagement gameplay: all milestones are earnable through free participation.
+function engagementExtras(dt){
+ const z=game.engagement ||= {};
+ z.clashAt??=game.time+180;z.clashDefense??=0;z.clashSiege??=0;
+ if(game.time>=z.clashAt){
+  const winner=z.clashDefense===z.clashSiege?'DRAW':z.clashDefense>z.clashSiege?'DEFENDERS':'SIEGERS';
+  if(winner==='DEFENDERS'){game.boost=Math.min(400,game.boost+35);game.hp=Math.min(1000,game.hp+80);}
+  if(winner==='SIEGERS')game.siegeBoost=Math.min(400,(game.siegeBoost||0)+35);
+  z.clashAt=game.time+180;z.clashDefense=0;z.clashSiege=0;
+  game.featureAnnouncement={title:'TEAM CLASH · '+winner,detail:winner==='DRAW'?'NEXT ROUND STARTS':'+ TEAM ATTACK BONUS',until:Date.now()+2200};
+ }
+ if(game.hp>0&&game.hp<=200&&!z.lastStandActive&&game.time>(z.lastStandCooldown||0)){
+  z.lastStandActive=true;z.lastStandEnds=game.time+20;
+  game.featureAnnouncement={title:'⚠ LAST STAND · 20 SEC',detail:'❤️ DEFENDERS SAVE · SIEGERS ATTACK',until:Date.now()+2500};
+ }
+ if(z.lastStandActive){
+  if(game.hp>200){z.lastStandActive=false;z.lastStandCooldown=game.time+40;game.featureAnnouncement={title:'CASTLE SAVED!',detail:'DEFENDERS HELD THE LINE',until:Date.now()+2000};}
+  else if(game.time>=z.lastStandEnds){z.lastStandActive=false;z.lastStandCooldown=game.time+50;game.featureAnnouncement={title:'LAST STAND ENDED',detail:'THE BATTLE CONTINUES',until:Date.now()+1700};}
+ }
+ if(z.bossActive&&!game.enemies.some(e=>e.worldBoss&&e.hp>0)){
+  z.bossActive=false;
+  if(z.bossHasSpawned){z.bossWins=(z.bossWins||0)+1;game.hp=Math.min(1000,game.hp+90);game.featureAnnouncement={title:'BOSS RAID COMPLETE!',detail:'DEFENDERS EARNED +90 CASTLE HP',until:Date.now()+2500};}
+ }
+ const missions=[{key:'taps',value:p=>p.likes||0,target:20,bonus:35,label:'20 TAPS'},{key:'kills',value:p=>p.kills||0,target:3,bonus:55,label:'3 KILLS'},{key:'level',value:p=>heroRecord(p.user).level||1,target:3,bonus:45,label:'LEVEL 3'}];
+ for(const p of (game.players||[]).slice(-150)){
+  p.missionsDone||={};
+  for(const m of missions){if(!p.missionsDone[m.key]&&m.value(p)>=m.target){p.missionsDone[m.key]=true;heroRecord(p.user).xp+=m.bonus;feed(displayHeroName(p.user),'MISSION '+m.label+' COMPLETE +'+m.bonus+' XP','#ffdd86');}}
+ }
+}
 function engagementTick(){
  game.engagement ||= {likes:0,milestone:0,bossAt:180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
  const z=game.engagement;
@@ -590,7 +620,7 @@ function engagementTick(){
  if(spawn('dragon',2.8,'NIGHTKEEP','cosmic')){
   const boss=game.enemies[game.enemies.length-1];
   boss.worldBoss=true;boss.x=345;boss.y=310;boss.speed=4;boss.attack=1.5;boss.maxHp=Math.max(15000,boss.maxHp);boss.hp=boss.maxHp;
-  z.bossActive=true;
+  z.bossActive=true;z.bossHasSpawned=true;
   eventBanner={user:'WORLD BOSS',title:'⚔ WORLD BOSS ARRIVED! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};
   beep('dragon');
  }
@@ -604,7 +634,7 @@ function drawEngagementHud(){
  text('BOSS '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'   ♥ '+(z.likes||0)+'/'+next+'   🛡 '+(z.defenseScore||0)+' : '+(z.siegeScore||0)+' ⚔',240,289,'#ffe5ae',13,'center');
 }
 
-function heroTier(lv){return lv>=15?4:lv>=10?3:lv>=6?2:lv>=3?1:0}
+function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
 function topHeroIds(side){return (game.players||[]).map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
 function drawLiveLeaderboards(){
  const def=topHeroIds('defense'),siege=topHeroIds('siege');
@@ -748,7 +778,7 @@ function drawPortrait(){
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
-function draw(){if(portrait)drawPortrait();else drawLandscape();if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
+function draw(){if(portrait)drawPortrait();else drawLandscape();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
 let uiTimer=0;
 function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
