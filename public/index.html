@@ -667,18 +667,33 @@ function battleGroundDetail(t,theme){
  const v=ctx.createLinearGradient(0,0,480,0);v.addColorStop(0,'#080d1f38');v.addColorStop(.20,'#00000000');v.addColorStop(.80,'#00000000');v.addColorStop(1,'#080d1f38');ctx.fillStyle=v;ctx.fillRect(0,292,480,308);
  ctx.restore();
 }
-function heroSilhouette(x,y,team,level,attackAge){
- const siege=team==='sieger',tier=heroTier(level),cape=siege?'#70263f':'#42678c',trim=siege?'#f28ba0':'#bee8ec';
- ctx.save();
- const dash=attackAge>=0&&attackAge<.19?Math.sin(attackAge/.19*Math.PI)*5:0;
- ctx.translate(x,y);ctx.fillStyle='#10152165';ctx.beginPath();ctx.ellipse(0,10,19,5,0,0,Math.PI*2);ctx.fill();
- // Cape, shoulder, shield and raised weapon make both factions recognizable at a glance.
- poly([[-10,-19],[-19,-8],[-12,8],[2,4],[9,-15]],cape);
- rect(-12,-22,23,5,tier>=2?trim:siege?'#994357':'#628faf');
- poly([[-15,-20],[-23,-16],[-23,0],[-13,5],[-10,-2]],siege?'#8e3748':'#79a4bd');
- ctx.strokeStyle=trim;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(11,-12);ctx.lineTo(20+dash,-36-dash);ctx.stroke();
- if(tier>=2){rect(-9,-31,17,3,trim);rect(-4,-35,7,6,trim);}
- if(tier>=3){poly([[-8,5],[-16,20],[-3,11]],cape);}
+function heroSilhouette(x,y,team,level,attackAge,hitAge=100){
+ const siege=team==='sieger',tier=heroTier(level),t=game.time,main=siege?'#8d344c':'#4b86a7',light=siege?'#f07c90':'#9fe7ef',gold=tier>=3?'#e9c579':'#819ca8';
+ const hit=hitAge>=0&&hitAge<.18,attack=attackAge>=0&&attackAge<.23;
+ const progress=attack?attackAge/.23:0,reach=attack?Math.sin(progress*Math.PI)*16:0;
+ const bob=Math.sin(t*3.7+x*.08)*1.1;
+ ctx.save();ctx.translate(x,y+bob);
+ if(hit)ctx.translate((Math.sin(hitAge*75))*2,0);
+ ctx.fillStyle='#080d1780';ctx.beginPath();ctx.ellipse(0,12,20,5,0,0,Math.PI*2);ctx.fill();
+ // Animated layered cape, boots, breastplate, visor, shield and blade.
+ const wind=Math.sin(t*2+x*.03)*4;
+ poly([[-9,-20],[-17-wind,-12],[-20-wind,8],[-3,5],[11,-16]],siege?'#491b37':'#224d70');
+ rect(-9,2,7,12,'#25293f');rect(3,2,7,12,'#25293f');rect(-11,11,10,4,'#171a29');rect(2,11,11,4,'#171a29');
+ poly([[-11,-26],[12,-26],[15,-6],[7,5],[-8,4],[-15,-6]],main);
+ poly([[-7,-22],[8,-22],[6,-2],[-4,-2]],siege?'#b65062':'#7db9cd');
+ rect(-13,-27,26,6,gold);rect(-11,-34,22,10,'#2c3449');rect(-12,-37,24,6,main);
+ rect(-8,-31,16,4,siege?'#ffa1a1':'#b4f4ff');rect(-3,-29,7,2,'#121727');
+ if(tier>=1){rect(-14,-39,28,3,gold);rect(-18,-24,7,10,light);rect(11,-24,7,10,light);}
+ if(tier>=2){poly([[-8,-39],[0,-48],[8,-39]],gold);rect(-13,-4,26,3,gold);}
+ if(tier>=3){poly([[-17,-15],[-23,-4],[-19,12],[-5,9]],siege?'#6e2747':'#3b638e');rect(-16,-20,4,15,gold);}
+ if(tier>=4){ctx.globalAlpha=.2+.07*Math.sin(t*4);ctx.strokeStyle=light;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-18,25,34,0,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
+ // Shield is a recognizable team color, weapon actually swings on attack.
+ poly([[-17,-19],[-27,-14],[-25,3],[-18,10],[-12,1]],siege?'#4d1727':'#254969');
+ poly([[-18,-16],[-23,-10],[-22,1],[-18,5],[-15,0]],light);
+ ctx.strokeStyle='#d3dadd';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(14,-20);ctx.lineTo(21+reach,-41+reach*.32);ctx.stroke();
+ ctx.strokeStyle=siege?'#ffd1cf':'#f4f6ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(20+reach,-39+reach*.32);ctx.lineTo(23+reach,-53+reach*.28);ctx.stroke();
+ ctx.strokeStyle=gold;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(15+reach,-38+reach*.32);ctx.lineTo(26+reach,-36+reach*.32);ctx.stroke();
+ if(attack){ctx.globalAlpha=(1-progress)*.8;ctx.strokeStyle=light;ctx.lineWidth=2;ctx.beginPath();ctx.arc(18+reach,-31,13,-1.2,.3);ctx.stroke();}
  ctx.restore();
 }
 function drawPremiumAtmosphere(t,theme){
@@ -707,7 +722,7 @@ function drawPortrait(){
  for(const e of enemies){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
-  if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {drawEnemy(e,p.x,p.y,true);if(e.siegerHero)heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100));}
+  if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {if(e.siegerHero)heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100),t-(e.lastHitAt??-100));else drawEnemy(e,p.x,p.y,true);}
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){
@@ -726,8 +741,7 @@ function drawPortrait(){
   const [armor,light]=palettes[tier];
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
   const attackAge=t-(d?.lastAttackAt??-100);const attacking=attackAge>=0&&attackAge<.16;if(attacking){ctx.save();ctx.globalAlpha=1-attackAge/.16;ctx.strokeStyle='#a0d7e4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+10,p.y-19,13,-1.4,.3);ctx.stroke();ctx.restore();}
-  heroSilhouette(p.x,p.y,'defender',lv,attackAge);
-  sprite(knight,p.x-11,p.y-25,3.45,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
+  heroSilhouette(p.x,p.y,'defender',lv,attackAge,t-(d?.lastSiegeHitAt??-100));
   if(d){
    if(d.lastSiegeHitAt!=null)smallImpact(p.x,p.y-23,'#f590aa',t-d.lastSiegeHitAt);if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.4){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.4;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
    if(tier>=1)rect(p.x-9,p.y-27,18,3,light);
