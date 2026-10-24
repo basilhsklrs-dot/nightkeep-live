@@ -707,7 +707,23 @@ function drawPortrait(){
  if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
  rect(0,737,480,117,'#111728');
  if(Date.now()<eventBanner.until){drawGiftIcon(eventBanner.skin||(eventBanner.color==='#8fe2ad'?'heart':'cosmic'),24,749,1.1);text(eventBanner.title.slice(0,39),241,eventBanner.comboTotal?756:763,eventBanner.color,12,'center');if(eventBanner.comboTotal)text(`COMBO ×${eventBanner.comboTotal} · BONUS +${eventBanner.bonus}%`,240,777,'#f5d49a',14,'center');text('@'+String(eventBanner.user).slice(0,30),240,eventBanner.comboTotal?798:784,'#f0e6dc',11,'center');}
- else{const alternatives=[['frost','Ice Cream → 6 Λύκοι πάγου'],['shadow','Sunglasses → Ιππότης σκιάς'],['queen','Drama Queen → Σκοτεινή βασίλισσα'],['cosmic','Universe → Κοσμικός δράκος']];const a=alternatives[Math.floor(t/5)%alternatives.length];drawGiftIcon(a[0],24,748,1.1);text(a[1],245,765,'#c2c0e7',12,'center');text('LIKE → BOOST · FOLLOW → YOUR HERO',240,788,'#d1dddc',11,'center');}
+ else{
+  const tips=[
+   ['rose','ROSE 1 COIN → HERO XP + POWER'],
+   ['heart','FINGER HEART → BOOST YOUR HERO'],
+   ['shadow','SUNGLASSES → BIGGER POWER BOOST'],
+   ['cosmic','LION / UNIVERSE → EPIC POWER'],
+   ['rose','🛡 DEFENDER GIFT → HEAL + DAMAGE'],
+   ['shadow','⚔ SIEGER GIFT → ATTACK + HP'],
+   ['heart','FREE TAPS → XP + HEAL + REVIVE']
+  ];
+  const tip=tips[Math.floor(t/5)%tips.length];
+  rect(16,727,448,82,'#111827e8');rect(16,727,448,2,'#f3c777');
+  text('🎁 GIFT GUIDE  ·  MORE COINS = MORE POWER',240,746,'#f4d58a',11,'center');
+  drawGiftIcon(tip[0],34,762,.85);
+  text(tip[1],251,769,'#ecf4e9',12,'center');
+  text('1 = DEFENDER   🛡     2 = SIEGER ⚔',240,791,'#a6dfca',12,'center');
+ }
  const highlight=game.players?.length?game.players[Math.floor(t/6)%game.players.length]:null;
  if(highlight){const role=highlight.hostile>0&&!highlight.likes&&!highlight.kills?`${highlight.hostile} ATTACK GIFTS`:highlight.support>0&&!highlight.likes&&!highlight.kills?`${highlight.support} SUPPORT GIFTS`:`${highlight.likes} likes · ${highlight.kills} kills`;text(`@${highlight.user.slice(0,16)} · ${role}`,240,813,'#d8e7dc',11,'center');}
  text(`TAP POWER ×${(1+game.boost/100).toFixed(2)}   ·   KILLS ${game.kills}`,240,838,'#f5cc73',13,'center');
