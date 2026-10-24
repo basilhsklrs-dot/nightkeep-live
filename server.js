@@ -9,14 +9,14 @@ export const clean = (v, n = 64) => String(v ?? '').replace(/[\u0000-\u001f\u007
 const positive = (v, max = 100000) => Math.max(1, Math.min(max, Math.floor(Number(v) || 1)));
 export const username = d => clean(d.user?.uniqueId || d.user?.displayId || d.uniqueId || d.user?.nickname || 'viewer');
 export const giftActions = {
-  rose: 'heal', 'tiktok coin': 'heal', coin: 'heal',
+  rose: 'heal', 'tiktok coin': 'heal', coin: 'heal', 'heart me':'member', 'member heart':'member', 'membership heart':'member', 'καρδιά μέλους':'member',
   'finger heart': 'shield', doughnut: 'wave', donut: 'wave', 'ice cream': 'wave',
   cap: 'mini', sunglasses: 'mini', 'drama queen': 'dragon', lion: 'dragon',
   universe: 'dragon', 'tiktok universe': 'dragon'
 };
-export const giftSkins={rose:'rose','tiktok coin':'rose',coin:'rose','finger heart':'heart',doughnut:'goblin',donut:'goblin','ice cream':'frost',cap:'armored',sunglasses:'shadow','drama queen':'queen',lion:'fire',universe:'cosmic','tiktok universe':'cosmic'};
-export const skinActions={rose:'heal',heart:'shield',goblin:'wave',frost:'wave',armored:'mini',shadow:'mini',queen:'dragon',fire:'dragon',cosmic:'dragon'};
-export const defaultSkins={heal:'rose',shield:'heart',wave:'goblin',mini:'armored',dragon:'fire'};
+export const giftSkins={rose:'rose','tiktok coin':'rose',coin:'rose','heart me':'member','member heart':'member','membership heart':'member','καρδιά μέλους':'member','finger heart':'heart',doughnut:'goblin',donut:'goblin','ice cream':'frost',cap:'armored',sunglasses:'shadow','drama queen':'queen',lion:'fire',universe:'cosmic','tiktok universe':'cosmic'};
+export const skinActions={rose:'heal',heart:'shield',goblin:'wave',frost:'wave',armored:'mini',shadow:'mini',queen:'dragon',fire:'dragon',cosmic:'dragon',member:'member'};
+export const defaultSkins={heal:'rose',shield:'heart',wave:'goblin',mini:'armored',dragon:'fire',member:'member'};
 /** Uses real gift metadata; optional per-region numeric ID overrides come from env. */
 export function giftInfo(d, overrides = {}) {
   const id = String(d.giftId ?? d.gift?.id ?? '');
