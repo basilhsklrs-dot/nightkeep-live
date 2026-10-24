@@ -164,7 +164,8 @@ function summonSieger(user,coins=0){
 function reviveDefender(user){const id=String(user||'viewer').slice(0,64);if((game.teams||{})[id]==='sieger')return;const h=heroRecord(id);if(!h.knockedOut)return;h.knockedOut=false;const d=addDefender(id);d.hp=Math.max(35,Math.ceil((d.maxHp||100)*.45));feed(displayHeroName(id),'REVIVED BY TAP OR GIFT','#8fe2ad');pop(155,320,'#8fe2ad',24);}
 function knockoutDefender(d){if(!d||d.hp>0)return;const h=heroRecord(d.name);if(h.knockedOut)return;h.knockedOut=true;game.defenders=game.defenders.filter(v=>v.name!==d.name);feed(displayHeroName(d.name),'KO — TAP OR GIFT TO REVIVE','#ff9aab');}
 function grantXp(user,amount,member=false){
- const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0);
+ const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0)*(retentionState().doubleUntil>game.time?2:1);
+ focusHero(id);
  h.xp+=gain;if(member)h.member=true;const old=h.level||1;
  h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
  reviveDefender(id);
@@ -351,8 +352,8 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({ranged:kind==='fast',projectileCooldown:1.5,kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,siegeBoost:old.siegeBoost,jobs:old.jobs,boost:old.boost,shield:old.shield});
- const dp=(old.players||[]).filter(p=>(old.teams||{})[p.user]!=='sieger').sort((a,b)=>(b.kills||0)-(a.kills||0))[0],sp=(old.players||[]).filter(p=>(old.teams||{})[p.user]==='sieger').sort((a,b)=>(b.likes||0)-(a.likes||0))[0];game.featureAnnouncement={title:'🏆 ROUND MVP',detail:'🛡 '+(dp?displayHeroName(dp.user):'—')+'   ⚔ '+(sp?displayHeroName(sp.user):'—'),until:Date.now()+2800};feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
+ const old=game;game=fresh();Object.assign(game,{retention:old.retention,heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,siegeBoost:old.siegeBoost,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const dp=(old.players||[]).filter(p=>(old.teams||{})[p.user]!=='sieger').sort((a,b)=>(b.kills||0)-(a.kills||0))[0],sp=(old.players||[]).filter(p=>(old.teams||{})[p.user]==='sieger').sort((a,b)=>(b.likes||0)-(a.likes||0))[0];game.featureAnnouncement={title:'🏆 ROUND MVP',detail:'🛡 '+(dp?displayHeroName(dp.user):'—')+'   ⚔ '+(sp?displayHeroName(sp.user):'—'),until:Date.now()+2800};if(dp)noteLegend(dp.user,'DEFENDER MVP',dp.kills||0);if(sp)noteLegend(sp.user,'SIEGER MVP',sp.likes||0);feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
 }
 function update(dt){
  if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>{if(!Number.isFinite(d.activeUntil)||d.activeUntil<=0){d.activeUntil=now+HERO_BASE_MS;const h=heroRecord(d.name);h.activeUntil=d.activeUntil;}return d.activeUntil>now;});}
@@ -360,7 +361,7 @@ function update(dt){
   if(!game.deadUntil){game.deadUntil=Date.now()+5000;pop(95,315,'#ffae69',60);beep('fall');save();}
   if(Date.now()>=game.deadUntil)resetRound();return;
  }
- engagementTick();engagementExtras(dt);
+ engagementTick();engagementExtras(dt);retentionTick();
  game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=1+Math.floor(game.time/35);game.best=Math.max(game.best,game.wave);
  game.boost=Math.max(0,game.boost-dt*(4+game.boost*.08));game.siegeBoost=Math.max(0,(game.siegeBoost||0)-dt*(4+(game.siegeBoost||0)*.08));game.shield=Math.max(0,game.shield-dt);game.flash=Math.max(0,game.flash-dt);game.shake=Math.max(0,game.shake-dt*2);
  game.spawn-=dt;if(game.spawn<=0){game.spawnNumber=(game.spawnNumber||0)+1;spawn(game.spawnNumber%5===0?'fast':'normal');game.spawn=Math.max(.6,3.2-game.wave*.13);}
@@ -385,7 +386,7 @@ function update(dt){
  }
  game.shots=game.shots.filter(s=>s.life>0);
  for(const e of game.enemies){
-  if(e.hp<=0){game.kills++;if(e.worldBoss){game.engagement||={};game.engagement.bossActive=false;game.engagement.bossHasSpawned=false;game.engagement.bossWins=(game.engagement.bossWins||0)+1;game.hp=Math.min(1000,game.hp+90);game.featureAnnouncement={title:'BOSS RAID VICTORY!',detail:'DEFENDERS +90 CASTLE HP',until:Date.now()+2500};}const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
+  if(e.hp<=0){game.kills++;if(e.worldBoss){noteLegend(e.lastHitOwner,'BOSS SLAYER',1);game.engagement||={};game.engagement.bossActive=false;game.engagement.bossHasSpawned=false;game.engagement.bossWins=(game.engagement.bossWins||0)+1;game.hp=Math.min(1000,game.hp+90);game.featureAnnouncement={title:'BOSS RAID VICTORY!',detail:'DEFENDERS +90 CASTLE HP',until:Date.now()+2500};}const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const hero=heroRecord(owner);if(e.siegerHero&&hero.revengeTarget===e.user&&Date.now()<(hero.revengeUntil||0)){hero.revengeTarget='';grantXp(owner,75);game.featureAnnouncement={title:'⚔ REVENGE COMPLETE!',detail:displayHeroName(owner).slice(0,18)+' +75 XP',until:Date.now()+2200};noteLegend(owner,'REVENGE',75);}const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
   e.phase+=dt*5;
   // Player siegers duel defenders before reaching the castle. A defender can be KO'd, healed by likes, and keeps XP.
   if(e.siegerHero){
@@ -396,7 +397,7 @@ function update(dt){
      e.attack=1.65/(1+(game.siegeBoost||0)/100+Math.floor((e.siegerLevel||1)/5)*.08);e.lastAttackAt=game.time;
      const victim=alive[Math.floor(Math.random()*alive.length)];
      const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
-     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0)knockoutDefender(victim);
+     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0){const record=heroRecord(victim.name);record.revengeTarget=e.user;record.revengeUntil=Date.now()+180000;knockoutDefender(victim);noteLegend(e.user,'KO',e.siegerLevel||1);}
      game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
      if(game.rangedBursts.length>20)game.rangedBursts.shift();
      if(victim.hp<=0){feed(displayHeroName(e.user),'KO '+displayHeroName(victim.name),'#f39daa');pop(180,320,'#ff8a9d',10);}
@@ -581,6 +582,52 @@ function displayHeroName(id){const nick=(game.displayNames||{})[id]||(game.playe
 const LIKE_TARGETS=[100,500,1000]; 
 
 // Engagement gameplay: all milestones are earnable through free participation.
+
+function retentionState(){
+ const r=game.retention ||= {nextDouble:game.time+330,doubleUntil:0,focus:'',focusAt:0,warningAt:{},legends:[]};
+ r.warningAt ||= {};r.legends ||= [];
+ return r;
+}
+function noteLegend(id,kind,score){
+ if(!id||id==='Φρουρά')return;
+ const r=retentionState();const name=displayHeroName(id).slice(0,32);
+ const entry={id,name,kind,score:Math.floor(Number(score)||0),at:Date.now()};
+ r.legends.unshift(entry);r.legends=r.legends.slice(0,12);
+ // Hall entries are real gameplay achievements, not the temporary visual demo.
+}
+function retentionTick(){
+ const r=retentionState();
+ if(game.time>=r.nextDouble){
+  r.doubleUntil=game.time+30;r.nextDouble=game.time+360;
+  game.featureAnnouncement={title:'⚡ DOUBLE XP · 30 SEC',detail:'FREE LIKES + GIFTS = 2× HERO XP',until:Date.now()+2700};
+ }
+ if(r.doubleUntil>0&&game.time>=r.doubleUntil){r.doubleUntil=0;game.featureAnnouncement={title:'DOUBLE XP FINISHED',detail:'NEXT BONUS IN 6 MIN',until:Date.now()+1500};}
+ for(const d of game.defenders||[]){
+  if(d.hp<=0||!d.maxHp||d.hp/d.maxHp>.32)continue;
+  const last=r.warningAt[d.name]||0;
+  if(game.time-last<35)continue;
+  r.warningAt[d.name]=game.time;
+  game.featureAnnouncement={title:'⚠ '+displayHeroName(d.name).slice(0,17)+' UNDER ATTACK!',detail:'❤️ TAP TO SAVE YOUR HERO',until:Date.now()+1900};
+ }
+}
+function focusHero(id){const r=retentionState();r.focus=String(id||'').slice(0,64);r.focusAt=Date.now();}
+function drawRetentionHud(){
+ const r=game.retention;if(!r)return;
+ const active=r.doubleUntil>game.time;
+ if(active){const left=Math.ceil(r.doubleUntil-game.time);text('⚡ DOUBLE XP '+left+'s',240,313,'#ffdd88',14,'center');}
+ const id=r.focus;
+ if(id&&Date.now()-(r.focusAt||0)<12000){
+  const h=game.heroes?.[id];if(h){
+   const level=h.level||1, next=Math.min(50,level+1);
+   const start=20*Math.pow(level-1,2),end=20*Math.pow(next-1,2);
+   const progress=level>=50?1:Math.max(0,Math.min(1,((h.xp||0)-start)/Math.max(1,end-start)));
+   rect(113,625,254,21,'#101a2acb');text(displayHeroName(id).slice(0,14)+' LV'+level+' → '+next,240,638,'#eee9df',10,'center');
+   rect(139,643,202,3,'#273848');rect(139,643,202*progress,3,'#9de5e7');
+  }
+ }
+ const latest=r.legends?.[0];
+ if(latest&&Date.now()-latest.at<9000)text('👑 LEGEND: '+latest.name.slice(0,17)+' · '+latest.kind,240,665,'#ffe29e',11,'center');
+}
 function engagementExtras(dt){
  const z=game.engagement ||= {};
  z.clashAt??=game.time+180;z.clashDefense??=0;z.clashSiege??=0;
@@ -874,7 +921,7 @@ function drawPortrait(){
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
-function draw(){if(portrait){drawPortrait();drawTimedShowcase();}else drawLandscape();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
+function draw(){if(portrait){drawPortrait();drawTimedShowcase();drawRetentionHud();}else drawLandscape();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
 let uiTimer=0;
 function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
