@@ -718,7 +718,24 @@ setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||doc
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
-restore();storageOk=store.set('nightkeep.storage-test','ok');requestWake();diagnostics();
+restore();
+if(new URLSearchParams(location.search).get('spawnBoss')==='1'){
+ game.engagement||={likes:0,milestone:0,bossAt:180,defenseScore:0,siegeScore:0};
+ const old=game.enemies.find(e=>e.worldBoss&&e.hp>0);
+ if(!old){
+  if(game.enemies.length>=MAX_ENEMIES){const i=game.enemies.findIndex(e=>!e.worldBoss);if(i>=0)game.enemies.splice(i,1);}
+  if(spawn('dragon',2.8,'NIGHTKEEP','cosmic')){
+   const boss=game.enemies[game.enemies.length-1];
+   Object.assign(boss,{worldBoss:true,x:345,y:310,speed:4,attack:1.5,maxHp:Math.max(15000,boss.maxHp)});
+   boss.hp=boss.maxHp;
+   game.engagement.bossActive=true;
+   game.engagement.bossAt=Math.max(game.engagement.bossAt||180,game.time+180);
+   eventBanner={user:'WORLD BOSS',title:'⚔ WORLD BOSS SPAWNED NOW!',until:Date.now()+9000,color:'#ffd77e'};
+   feed('NIGHTKEEP','WORLD BOSS SUMMONED FOR LIVE TEST','#ffd77e');
+  }
+ }
+}
+storageOk=store.set('nightkeep.storage-test','ok');requestWake();diagnostics();
 if(demo){
  document.body.classList.add('demo');setStatus({state:'demo'});
  const gifts=[['Rose','heal'],['Finger Heart','shield'],['Doughnut','wave'],['Ice Cream','wave'],['Cap','mini'],['Sunglasses','mini'],['Drama Queen','dragon'],['Lion','dragon'],['Universe','dragon']];
