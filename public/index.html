@@ -447,7 +447,7 @@ function drawLandscape(){
   const pos=defenderPos(i),d=i<3?null:game.defenders[i-3];
   sprite(knight,pos.x-7,pos.y-18+Math.sin(t*3+i)*.4,1.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
   // All names rotate into view, including those in a large roster.
-  if(d&&((i-3)%12===Math.floor(t/2)%12||game.defenders.length<7))text(d.name.slice(0,14),pos.x,pos.y-25-(i%3)*8,'#c2dbce',6,'center');
+  if(d&&((i-3)%12===Math.floor(t/2)%12||game.defenders.length<7))text((d.member?'♥ ':'')+d.name.slice(0,10)+' LV'+(d.level||1),pos.x,pos.y-25-(i%3)*8,d.member?'#ffafd7':'#c2dbce',6,'center');
  }
  for(const e of [...game.enemies].sort((a,b)=>a.y-b.y)){
   rect(e.x-10,e.y+4,e.kind==='dragon'?65:20,3,'#25333b');
@@ -498,8 +498,8 @@ function drawPortrait(){
   const p=portraitDefender(i),d=i<3?null:game.defenders[i-3];
   sprite(knight,p.x-11,p.y-25,2.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
   if(d&&(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10)){
-   const name=d.name.slice(0,10)+' L'+(1+Math.floor((d.kills||0)/5)),width=name.length*6+6,yy=p.y-36-(i%2)*15;
-   rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,'#e3f0df',10,'center');
+   const name=(d.member?'♥ ':'')+d.name.slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
+   rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ffafd7':'#e3f0df',10,'center');
   }
  }
  for(const shot of game.shots){
