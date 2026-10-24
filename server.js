@@ -44,6 +44,7 @@ export class Normalizer {
       this.ids.set(key, { at: this.now() });
     }
     const user = username(d);
+    if (type === 'join') return {type:'join',user};
     if (type === 'like') return { type: 'like', user, count: positive(d.count ?? d.likeCount) };
     if (type === 'follow') return { type: 'follow', user, count: 1 };
     if (type !== 'gift') return null;
@@ -188,7 +189,7 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.ERROR, () => { if (valid()) console.warn('TikTok connection error; monitoring/retrying.'); });
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
-      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift']]) {
+      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['ROOM_USER','join']]) {
         current.on(WebcastEvent[key], d => { if (valid()) emit(normalizer.normalize(type, d, room)); });
       }
       let deadline;
