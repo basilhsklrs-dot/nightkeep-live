@@ -137,13 +137,26 @@ function safeReload(reason){
  reloadPending=true;save();store.set('nightkeep.lastRecovery',String(Date.now()));notice(reason);location.reload();
 }
 function pop(x,y,color,n=12){for(let i=0;i<n&&game.particles.length<180;i++)game.particles.push({x,y,vx:rnd(-40,40),vy:rnd(-70,10),life:rnd(.3,.9),color});}
-function addDefender(name){
- const id=String(name).slice(0,64);if(game.followIds.includes(id))return;
- game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();
- if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();
- game.defenders.push({name:id,kills:0,xp:0,level:1,member:false,seed:Math.random(),cooldown:rnd(0,1)});pop(155,320,'#9ee3bd',20);
+// Persistent per-viewer hero roster; active defenders have a renewable combat lease.
+const HERO_BASE_MS=120000,HERO_MAX_MS=900000;
+function heroRecord(name){const id=String(name||'viewer').slice(0,64);game.heroes ||= {};return game.heroes[id] ||= {name:id,xp:0,level:1,kills:0,member:false,activeUntil:0};}
+function addDefender(name,lease=HERO_BASE_MS){
+ const id=String(name||'viewer').slice(0,64),h=heroRecord(id),now=Date.now();
+ h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+lease,now+HERO_MAX_MS);
+ let d=game.defenders.find(v=>v.name===id);
+ if(!d){if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();d={name:id,kills:h.kills||0,xp:h.xp||0,level:h.level||1,member:!!h.member,seed:Math.random(),cooldown:rnd(0,1)};game.defenders.push(d);pop(155,320,'#9ee3bd',20);feed(id,'ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΜΑΧΗ · LV'+d.level,'#9ee3bd');}
+ d.activeUntil=h.activeUntil;d.level=h.level;d.xp=h.xp;d.member=h.member;
+ if(!game.followIds.includes(id)){game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();}
+ return d;
 }
-function grantXp(user,amount,member=false){const d=game.defenders.find(v=>v.name===String(user||'').slice(0,64));if(!d)return;d.xp=(d.xp||0)+Math.max(0,amount);if(member)d.member=true;const old=d.level||1;d.level=Math.min(50,1+Math.floor(Math.sqrt(d.xp/20)));if(d.level>old){eventBanner={user:d.name,title:`⚔ LEVEL ${d.level}${d.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(d.name,`LEVEL ${d.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}}
+function grantXp(user,amount,member=false){
+ const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0);
+ h.xp+=gain;if(member)h.member=true;const old=h.level||1;
+ h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
+ const d=addDefender(id,member?120000:Math.min(120000,Math.max(7000,gain*700)));
+ d.xp=h.xp;d.level=h.level;d.member=h.member;
+ if(h.level>old){eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}
+}
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
  let p=game.players.find(p=>p.user===user);
@@ -198,7 +211,7 @@ function applyEvent(e){
  const count=clamp(Number(e.count)||1,1,100000);
  if(e.type==='join'){const name=String(e.user||'θεατή').slice(0,40);eventBanner={user:'@'+name,title:'ΚΑΛΩΣ ΗΡΘΕΣ! ΠΑΡΕ ΜΕΡΟΣ ΣΤΗ ΜΑΧΗ ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Καλώς ήρθες! Κάνε FOLLOW για δικό σου στρατιώτη.','#a9e4c0');return;}
  if(e.type==='like'){game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
- if(e.type==='follow'){eventBanner={user:e.user,title:'ΝΕΟΣ ΥΠΕΡΑΣΠΙΣΤΗΣ',until:Date.now()+5500,color:'#8fe2ad'};addDefender(e.user);feed(e.user,'πήρε θέση στην άμυνα.','#8fe2ad');beep('follow');return;}
+ if(e.type==='follow'){addDefender(e.user);eventBanner={user:e.user,title:'ΝΕΟΣ ΥΠΕΡΑΣΠΙΣΤΗΣ',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'πήρε θέση στην άμυνα.','#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ ΚΑΡΔΙΑ ΜΕΛΟΥΣ — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
  if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
@@ -291,10 +304,11 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,jobs:old.jobs,boost:old.boost,shield:old.shield});
  feed('NIGHTKEEP','Το κάστρο αναγεννήθηκε. Η άμυνα συνεχίζεται.');save();
 }
 function update(dt){
+ if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>(d.activeUntil||now+HERO_BASE_MS)>now);}
  if(game.hp<=0||game.deadUntil){
   if(!game.deadUntil){game.deadUntil=Date.now()+5000;pop(95,315,'#ffae69',60);beep('fall');save();}
   if(Date.now()>=game.deadUntil)resetRound();return;
@@ -322,7 +336,7 @@ function update(dt){
  }
  game.shots=game.shots.filter(s=>s.life>0);
  for(const e of game.enemies){
-  if(e.hp<=0){game.kills++;const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender)defender.kills=(defender.kills||0)+1;}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
+  if(e.hp<=0){game.kills++;const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
   e.phase+=dt*5;
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
