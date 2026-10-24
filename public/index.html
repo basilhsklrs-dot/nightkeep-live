@@ -113,7 +113,7 @@ function notice(text){$('notice').textContent=text;}
 function beep(kind){
  if(!soundOn||!audioContext||audioContext.state!=='running'||performance.now()-lastSound<55)return;
  lastSound=performance.now();const a=audioContext,t=a.currentTime,o=a.createOscillator(),v=a.createGain();
- const frequencies={stage:960,combo:1240,shoot:760,hit:140,heal:520,shield:900,follow:660,dragon:65,fall:100,wave:180,mini:110};
+ const frequencies={level:1100,stage:960,combo:1240,shoot:760,hit:140,heal:520,shield:900,follow:660,dragon:65,fall:100,wave:180,mini:110};
  o.type=kind==='dragon'?'sawtooth':'square';o.frequency.setValueAtTime(frequencies[kind]||300,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,(frequencies[kind]||300)*.5),t+.12);v.gain.setValueAtTime(.035,t);v.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(v);v.connect(a.destination);o.start(t);o.stop(t+.18);
 }
 async function requestWake(){
@@ -157,7 +157,7 @@ function grantXp(user,amount,member=false){
  h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
  const d=addDefender(id,member?120000:Math.min(120000,Math.max(7000,gain*700)));
  d.xp=h.xp;d.level=h.level;d.member=h.member;
- if(h.level>old){eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}
+ if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}
 }
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
@@ -236,7 +236,7 @@ function applyEvent(e){
   game.shield=Math.min(60,game.shield+seconds);eventBanner.title=`FINGER HEART → ${Math.ceil(game.shield)}s ΑΣΠΙΔΑ`;
  }
  if(e.action==='wave')enqueue('fast',comboPower(6,total)-comboPower(6,previous),e.user,skin);
- if(e.action==='mini'||e.action==='dragon'){
+ if(e.action==='mini'||e.action==='dragon'){beep(e.action==='dragon'?'dragon':'mini');
   empowerBosses(id,bonus);enqueue(e.action==='mini'?'mini':'dragon',c,e.user,skin,id,bonus);
   if(e.action==='dragon')game.shake=1;
  }
@@ -516,7 +516,7 @@ function drawPortrait(){
   sprite(knight,p.x-11,p.y-25,2.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
   if(d&&(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10)){
    const name=(d.member?'♥ ':'')+d.name.slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
-   rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ffafd7':'#e3f0df',10,'center');
+   rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ffafd7':'#e3f0df',10,'center');text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,d.member?'#ffafd7':'#a6d7bd',9,'center');
   }
  }
  for(const shot of game.shots){
@@ -579,7 +579,7 @@ $('fullscreen').onclick=async()=>{try{await document.documentElement.requestFull
 $('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.48'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
 $('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Ήχος ON':'Ήχος OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
 window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
-let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.009,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
+let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.042,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
