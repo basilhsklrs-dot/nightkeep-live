@@ -15,19 +15,19 @@ body.broadcast{overflow:hidden;background:#101526}body.broadcast .shell{max-widt
 </style>
 </head>
 <body>
-<button id="quickSound" type="button">🔊 Ενεργοποίηση ήχου</button>
-<button id="quickFullscreen" type="button" aria-label="Πλήρης οθόνη" title="Πλήρης οθόνη">⛶ Πλήρης οθόνη</button>
+<button id="quickSound" type="button">🔊 Enable Sound</button>
+<button id="quickFullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">⛶ Fullscreen</button>
 <div class="shell">
-<header><div class="crest" aria-hidden="true">♜</div><div><div class="brand">NIGHTKEEP</div><div class="kicker">A KINGDOM BUILT BY YOUR AUDIENCE</div></div><div class="headright"><span class="pill" id="connection"><i class="dot"></i>CONNECTING</span><button id="audio" title="Ενεργοποίηση ήχου">Ήχος OFF</button><button id="settings" aria-label="Ρυθμίσεις σύνδεσης">⚙</button></div></header>
+<header><div class="crest" aria-hidden="true">♜</div><div><div class="brand">NIGHTKEEP</div><div class="kicker">A KINGDOM BUILT BY YOUR AUDIENCE</div></div><div class="headright"><span class="pill" id="connection"><i class="dot"></i>CONNECTING</span><button id="audio" title="Enable Sound">Sound OFF</button><button id="settings" aria-label="Ρυθμίσεις σύνδεσης">⚙</button></div></header>
 <div class="healthline" aria-live="off"><span id="transportHealth">SERVER: αναμονή</span><span id="liveHealth">TikTok: αναμονή</span><span id="wakeHealth">Οθόνη: έλεγχος</span><span id="saveHealth">Αποθήκευση: έλεγχος</span><span id="eventHealth">Event: —</span></div>
-<div id="stageGuide">LIKE → Ταχύτητα · FOLLOW → Στρατιώτης · ROSE → Ζωή · HEART → Ασπίδα · DOUGHNUT → Κύμα · CAP → Boss · LION → Δράκος</div>
-<div id="demoBanner">DEMO · Προσομοιωμένα events — δεν έχει συνδεθεί TikTok LIVE.</div>
-<div class="intro"><div><h1>One castle. Your audience decides.</h1><p>Χτίστε την άμυνα. Καλέστε το χάος. Κρατήστε το κάστρο ζωντανό.</p></div><span class="tiny">16-BIT WORLD / AUTOPLAY</span></div>
+<div id="stageGuide">LIKE → BOOST · FOLLOW → YOUR HERO · ROSE → HP · HEART → Ασπίδα · DOUGHNUT → Κύμα · CAP → Boss · LION → Dragon</div>
+<div id="demoBanner">DEMO · Simulated events — TikTok LIVE is not connected.</div>
+<div class="intro"><div><h1>One castle. Your audience decides.</h1><p>Build the defense. Unleash chaos. Keep the castle alive.</p></div><span class="tiny">16-BIT WORLD / AUTOPLAY</span></div>
 <div class="layout"><main>
 <section class="arena" aria-label="Αυτόματο παιχνίδι άμυνας κάστρου">
 <div class="arenahead"><span class="label">THE EVERLASTING SIEGE</span><span class="gold" id="wave">WAVE 01</span></div>
-<div class="canvaswrap"><canvas id="game" width="480" height="450" aria-label="Πεδίο μάχης με κάστρο, στρατιώτες και εχθρούς"></canvas><div class="overlay"><strong id="realm">THE MOONLIT FRONTIER</strong><span id="streamState">Αναμονή σύνδεσης...</span></div></div>
-<div class="arenabottom"><div class="healthtop"><span>♜ CASTLE INTEGRITY</span><span id="hp">1000 / 1000</span></div><div class="track" role="progressbar" aria-label="Ζωή κάστρου" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="1000" id="hpbar"><div class="fill" id="hpfill"></div></div><div class="boostrow"><span>ϟ TAP POWER</span><div class="track"><div class="fill" id="boostfill" style="width:0"></div></div><span class="gold" id="boost">×1.00</span></div></div>
+<div class="canvaswrap"><canvas id="game" width="480" height="450" aria-label="Πεδίο μάχης με κάστρο, στρατιώτες και εχθρούς"></canvas><div class="overlay"><strong id="realm">THE MOONLIT FRONTIER</strong><span id="streamState">Waiting for connection...</span></div></div>
+<div class="arenabottom"><div class="healthtop"><span>♜ CASTLE INTEGRITY</span><span id="hp">1000 / 1000</span></div><div class="track" role="progressbar" aria-label="HP κάστρου" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="1000" id="hpbar"><div class="fill" id="hpfill"></div></div><div class="boostrow"><span>ϟ TAP POWER</span><div class="track"><div class="fill" id="boostfill" style="width:0"></div></div><span class="gold" id="boost">×1.00</span></div></div>
 </section>
 <div class="stats"><div class="stat"><span>DEFENDERS</span><b id="defenders">03</b></div><div class="stat"><span>DEFEATED</span><b id="kills">0</b></div><div class="stat"><span>ROUND / BEST</span><b id="round">01 / 01</b></div></div>
 <div id="notice" role="status"></div>
@@ -45,7 +45,7 @@ body.broadcast{overflow:hidden;background:#101526}body.broadcast .shell{max-widt
 <p class="note">Το κάστρο πολεμά αυτόματα. Μετά την πτώση του, νέα μάχη σε 5″. Τα σχόλια δεν ελέγχουν το παιχνίδι.</p>
 </aside></div><div class="footer"><span>NO CONTROLS. JUST COMMUNITY.</span><span id="clock">00:00:00</span><span>STAY FOR THE NEXT WAVE ↗</span></div>
 </div>
-<dialog id="config"><h2>Σύνδεση στο βασίλειο</h2><p>Το username του streamer ορίζεται στο backend. Εδώ βάζεις μόνο τη διεύθυνση WebSocket.</p><form id="configForm"><label for="endpoint">WebSocket URL</label><input id="endpoint" type="url" placeholder="wss://castle-live.onrender.com/ws" required><p class="note">Για ασφαλή σελίδα HTTPS χρειάζεται wss://. Μην βάλεις API keys εδώ. Η επιλογή αποθηκεύεται σε αυτό το tablet.</p><div class="actions"><button class="primary" type="submit">Αποθήκευση & σύνδεση</button><button id="closeConfig" type="button">Κλείσιμο</button></div></form><div class="actions"><button id="demoButton">Άνοιγμα demo</button><button id="fullscreen">Πλήρης οθόνη</button><button id="stage">Οθόνη LIVE / μενού</button><button id="orientation">Κάθετη / οριζόντια σκηνή</button></div><p class="note" style="margin-top:15px">Μία αρχική αφή ενεργοποιεί ήχο και αίτημα διατήρησης οθόνης. Το gameplay ξεκινά χωρίς αφή.</p></dialog>
+<dialog id="config"><h2>Kingdom Connection</h2><p>The streamer username is set on the server. Enter only the WebSocket URL here.</p><form id="configForm"><label for="endpoint">WebSocket URL</label><input id="endpoint" type="url" placeholder="wss://castle-live.onrender.com/ws" required><p class="note">Use wss:// for secure HTTPS. Never put API keys here. Your choice is saved on this tablet.</p><div class="actions"><button class="primary" type="submit">Save & Connect</button><button id="closeConfig" type="button">Close</button></div></form><div class="actions"><button id="demoButton">Open Demo</button><button id="fullscreen">Fullscreen</button><button id="stage">LIVE View / Menu</button><button id="orientation">Portrait / Landscape</button></div><p class="note" style="margin-top:15px">Tap once to enable audio and keep the screen awake. Gameplay starts automatically.</p></dialog>
 <script>
 'use strict';
 // Change this once before uploading to Pages/Netlify, or use the settings dialog.
@@ -146,7 +146,7 @@ function addDefender(name,lease=HERO_BASE_MS){
  const id=String(name||'viewer').slice(0,64),h=heroRecord(id),now=Date.now();
  h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+lease,now+HERO_MAX_MS);
  let d=game.defenders.find(v=>v.name===id);
- if(!d){if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();d={name:id,kills:h.kills||0,xp:h.xp||0,level:h.level||1,member:!!h.member,seed:Math.random(),cooldown:rnd(0,1)};game.defenders.push(d);pop(155,320,'#9ee3bd',20);feed(id,'ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΜΑΧΗ · LV'+d.level,'#9ee3bd');}
+ if(!d){if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();d={name:id,kills:h.kills||0,xp:h.xp||0,level:h.level||1,member:!!h.member,seed:Math.random(),cooldown:rnd(0,1)};game.defenders.push(d);pop(155,320,'#9ee3bd',20);feed(id,'RETURN TO BATTLE · LV'+d.level,'#9ee3bd');}
  d.activeUntil=h.activeUntil;d.level=h.level;d.xp=h.xp;d.member=h.member;
  if(!game.followIds.includes(id)){game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();}
  return d;
@@ -157,7 +157,7 @@ function grantXp(user,amount,member=false){
  h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
  const d=addDefender(id,member?120000:Math.min(240000,Math.max(90000,gain*1500)));
  d.xp=h.xp;d.level=h.level;d.member=h.member;
- if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}
+ if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Stronger hero`,'#f5cc73');}
 }
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
@@ -211,10 +211,10 @@ function empowerBosses(id,bonus){
 }
 function applyEvent(e){
  const count=clamp(Number(e.count)||1,1,100000);
- if(e.type==='join'){const name=String(e.user||'θεατή').slice(0,40);eventBanner={user:'@'+name,title:'ΚΑΛΩΣ ΗΡΘΕΣ! ΠΑΡΕ ΜΕΡΟΣ ΣΤΗ ΜΑΧΗ ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Καλώς ήρθες! Κάνε FOLLOW για δικό σου στρατιώτη.','#a9e4c0');return;}
+ if(e.type==='join'){const name=String(e.user||'θεατή').slice(0,40);eventBanner={user:'@'+name,title:'WELCOME! FOLLOW TO JOIN THE BATTLE ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Welcome! FOLLOW to join the battle as your own hero!','#a9e4c0');return;}
  if(e.type==='like'){game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
- if(e.type==='follow'){addDefender(e.user);eventBanner={user:e.user,title:'ΝΕΟΣ ΥΠΕΡΑΣΠΙΣΤΗΣ',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'πήρε θέση στην άμυνα.','#8fe2ad');beep('follow');return;}
- if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ ΚΑΡΔΙΑ ΜΕΛΟΥΣ — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
+ if(e.type==='follow'){addDefender(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
+ if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
  if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  grantXp(e.user,count*10);
@@ -307,7 +307,7 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
 }
 function resetRound(){
  const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,jobs:old.jobs,boost:old.boost,shield:old.shield});
- feed('NIGHTKEEP','Το κάστρο αναγεννήθηκε. Η άμυνα συνεχίζεται.');save();
+ feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
 }
 function update(dt){
  if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>{if(!Number.isFinite(d.activeUntil)||d.activeUntil<=0){d.activeUntil=now+HERO_BASE_MS;const h=heroRecord(d.name);h.activeUntil=d.activeUntil;}return d.activeUntil>now;});}
@@ -441,9 +441,9 @@ function drawStageDecor(vertical,t,state){
 }
 function drawGiftGuide(){
  rect(0,139,480,158,'#151d2c');
- text('ΒΟΗΘΗΣΕ ΤΟ ΚΑΣΤΡΟ',116,159,'#9edbb0',11,'center');text('ΣΤΕΙΛΕ ΕΧΘΡΟΥΣ',342,159,'#e7a5ba',11,'center');
+ text('DEFEND THE CASTLE',116,159,'#9edbb0',11,'center');text('SUMMON ENEMIES',342,159,'#e7a5ba',11,'center');
  rect(226,167,1,97,'#344053');
- const rows=[['rose',30,178,'Rose','+160 HP','#9edbb0'],['heart',30,222,'Finger Heart','Ασπίδα 8s','#9edbb0'],['goblin',247,174,'Doughnut','6 Goblins','#e7a5ba'],['armored',247,205,'Cap','Mini-Boss','#e7a5ba'],['fire',247,236,'Lion','Δράκος','#e7a5ba']];
+ const rows=[['rose',30,178,'Rose','+160 HP','#9edbb0'],['heart',30,222,'Finger Heart','Shield 8s','#9edbb0'],['goblin',247,174,'Doughnut','6 Goblins','#e7a5ba'],['armored',247,205,'Cap','Mini-Boss','#e7a5ba'],['fire',247,236,'Lion','Dragon','#e7a5ba']];
  for(const [skin,x,y,name,effect,color] of rows){drawGiftIcon(skin,x,y,1);text(name,x+28,y+9,'#eee8e1',11);text(effect,x+28,y+23,color,10);}
  text('COMBO ×5:+5% · ×10:+10% · ×20:+20% · ×50:+30%',240,289,'#e3c68c',10,'center');
 }
@@ -535,31 +535,35 @@ function drawPortrait(){
  rect(0,0,480,139,'#111728');text('NIGHTKEEP',240,27,'#f3d69a',27,'center');
  const live=demo||backendState==='demo'?'DEMO · ΠΡΟΟΔΟΣ ΠΙΣΤΩΝ ×3':backendState==='live'?'TIKTOK LIVE · CONNECTED':'LIVE OFFLINE · AUTO RECONNECT';
  text(live,240,44,backendState==='live'?'#8fe2ad':'#f5cc73',11,'center');
- text(`ΠΙΣΤΑ ${state.index+1}/4 · ${theme.short} · ΚΥΚΛΟΣ ${state.cycle}`,240,63,theme.accent,12,'center');
+ text(`STAGE ${state.index+1}/4 · ${theme.short} · CYCLE ${state.cycle}`,240,63,theme.accent,12,'center');
  rect(47,71,360,5,'#283347');rect(47,71,360*state.progress,5,theme.accent);
- text(`ΚΥΜΑ ${state.wave}/3  ·  ΓΥΡΟΣ ${game.round}  ·  DEFENDERS ${game.defenders.length+3}`,240,91,'#cbd3dc',11,'center');
+ text(`WAVE ${state.wave}/3  ·  ROUND ${game.round}  ·  DEFENDERS ${game.defenders.length+3}`,240,91,'#cbd3dc',11,'center');
  text('CASTLE HP',47,106,'#bdc8c5',10);text(`${Math.max(0,Math.ceil(game.hp))}/1000`,407,106,'#d9e5d9',11,'right');
  rect(47,114,360,11,'#060b14');rect(49,116,356*Math.max(0,game.hp)/1000,7,game.hp<260?'#df8f9f':'#8fe2ad');
  drawGiftGuide();
+ // TikTok-safe high-contrast call to action, shown above the action area.
+ rect(14,302,452,48,'#12172ded');rect(14,302,452,3,'#f5cc73');
+ text('⚔ FOLLOW = JOIN THE BATTLE AS YOUR HERO!',240,320,'#fff1bd',15,'center');
+ text('💗 MEMBER HEART = ELITE POWER + EXTRA XP!',240,340,'#ffb8db',13,'center');
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
  if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
  rect(0,737,480,117,'#111728');
  if(Date.now()<eventBanner.until){drawGiftIcon(eventBanner.skin||(eventBanner.color==='#8fe2ad'?'heart':'cosmic'),24,749,1.1);text(eventBanner.title.slice(0,39),241,eventBanner.comboTotal?756:763,eventBanner.color,12,'center');if(eventBanner.comboTotal)text(`COMBO ×${eventBanner.comboTotal} · BONUS +${eventBanner.bonus}%`,240,777,'#f5d49a',14,'center');text('@'+String(eventBanner.user).slice(0,30),240,eventBanner.comboTotal?798:784,'#f0e6dc',11,'center');}
- else{const alternatives=[['frost','Ice Cream → 6 Λύκοι πάγου'],['shadow','Sunglasses → Ιππότης σκιάς'],['queen','Drama Queen → Σκοτεινή βασίλισσα'],['cosmic','Universe → Κοσμικός δράκος']];const a=alternatives[Math.floor(t/5)%alternatives.length];drawGiftIcon(a[0],24,748,1.1);text(a[1],245,765,'#c2c0e7',12,'center');text('LIKE → Ταχύτητα · FOLLOW → Στρατιώτης',240,788,'#d1dddc',11,'center');}
+ else{const alternatives=[['frost','Ice Cream → 6 Λύκοι πάγου'],['shadow','Sunglasses → Ιππότης σκιάς'],['queen','Drama Queen → Σκοτεινή βασίλισσα'],['cosmic','Universe → Κοσμικός δράκος']];const a=alternatives[Math.floor(t/5)%alternatives.length];drawGiftIcon(a[0],24,748,1.1);text(a[1],245,765,'#c2c0e7',12,'center');text('LIKE → BOOST · FOLLOW → YOUR HERO',240,788,'#d1dddc',11,'center');}
  const highlight=game.players?.length?game.players[Math.floor(t/6)%game.players.length]:null;
- if(highlight){const role=highlight.hostile>0&&!highlight.likes&&!highlight.kills?`${highlight.hostile} ΔΩΡΑ ΕΠΙΘΕΣΗΣ`:highlight.support>0&&!highlight.likes&&!highlight.kills?`${highlight.support} ΔΩΡΑ ΒΟΗΘΕΙΑΣ`:`${highlight.likes} likes · ${highlight.kills} kills`;text(`@${highlight.user.slice(0,16)} · ${role}`,240,813,'#d8e7dc',11,'center');}
+ if(highlight){const role=highlight.hostile>0&&!highlight.likes&&!highlight.kills?`${highlight.hostile} ATTACK GIFTS`:highlight.support>0&&!highlight.likes&&!highlight.kills?`${highlight.support} SUPPORT GIFTS`:`${highlight.likes} likes · ${highlight.kills} kills`;text(`@${highlight.user.slice(0,16)} · ${role}`,240,813,'#d8e7dc',11,'center');}
  text(`TAP POWER ×${(1+game.boost/100).toFixed(2)}   ·   KILLS ${game.kills}`,240,838,'#f5cc73',13,'center');
  // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
  rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
  text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+game.defenders.length,240,665,'#e7f3e8',17,'center');
- text('FOLLOW = ΣΤΡΑΤΙΩΤΗΣ • LIKES = XP • ♥ ΜΕΛΟΥΣ = ELITE',240,692,'#f5d49a',11,'center');
- if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('ΤΟ ΚΑΣΤΡΟ ΕΠΕΣΕ',228,355,'#edb9c6',22,'center');text(`ΝΕΑ ΜΑΧΗ ΣΕ ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Οι υπερασπιστές επιστρέφουν.',228,444,'#bcc8cd',14,'center');}
+ text('FOLLOW = YOUR HERO • LIKES = XP • MEMBER HEART = ELITE',240,692,'#f5d49a',11,'center');
+ if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
-function draw(){if(portrait)drawPortrait();else drawLandscape();if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`ΝΕΑ ΠΙΣΤΑ ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`ΚΥΚΛΟΣ ${stageBanner.cycle} · Η ΜΑΧΗ ΣΥΝΕΧΙΖΕΤΑΙ`,240,y+53,'#aab8c8',10,'center');}if(Date.now()<comboBurst.until){const y=portrait?412:128;rect(56,y-30,368,87,'#171f31ed');text(`COMBO ×${comboBurst.total}`,240,y,'#f5d49a',25,'center');text(`@${String(comboBurst.user).slice(0,20)} · BONUS +${comboBurst.bonus}%`,240,y+31,'#dac3ed',14,'center');}}
+function draw(){if(portrait)drawPortrait();else drawLandscape();if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(Date.now()<comboBurst.until){const y=portrait?412:128;rect(56,y-30,368,87,'#171f31ed');text(`COMBO ×${comboBurst.total}`,240,y,'#f5d49a',25,'center');text(`@${String(comboBurst.user).slice(0,20)} · BONUS +${comboBurst.bonus}%`,240,y+31,'#dac3ed',14,'center');}}
 let uiTimer=0;
-function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`ΠΙΣΤΑ ${stageState().index+1}/4 · ΚΥΜΑ ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
+function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
 function frame(now){
  frameAt=now;const elapsed=Math.min(.1,(now-last)/1000);last=now;accumulator+=elapsed;
@@ -574,11 +578,11 @@ $('demoButton').onclick=()=>{const u=new URL(location.href);u.searchParams.set('
 $('stage').onclick=()=>{const enabled=!document.body.classList.contains('broadcast');document.body.classList.toggle('broadcast',enabled);document.body.classList.toggle('stage',enabled);$('config').close()};
 $('orientation').onclick=()=>{portrait=!portrait;canvas.height=portrait?854:450;document.body.classList.toggle('portrait',portrait);$('config').close()};
 $('quickFullscreen').onclick=async()=>{try{if(document.fullscreenElement){await document.exitFullscreen();}else{await document.documentElement.requestFullscreen();try{await screen.orientation?.lock?.('portrait')}catch{}} }catch{notice('Ο browser δεν επιτρέπει πλήρη οθόνη. Άνοιξε τη σελίδα απευθείας στον Chrome.')}};
-document.addEventListener('fullscreenchange',()=>{$('quickFullscreen').textContent=document.fullscreenElement?'⛶ Έξοδος':'⛶ Πλήρης οθόνη'});
+document.addEventListener('fullscreenchange',()=>{$('quickFullscreen').textContent=document.fullscreenElement?'⛶ Έξοδος':'⛶ Fullscreen'});
 $('fullscreen').onclick=async()=>{try{await document.documentElement.requestFullscreen();$('config').close();await requestWake()}catch{notice('Η πλήρης οθόνη δεν υποστηρίζεται σε αυτόν τον browser.')}};
-$('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.85'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
-$('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Ήχος ON':'Ήχος OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
-window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn||audioContext?.state!=='running'){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
+$('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Sound ON';$('quickSound').textContent='🔊 Sound ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.85'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
+$('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Sound ON':'Sound OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
+window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn||audioContext?.state!=='running'){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Sound ON';$('quickSound').textContent='🔊 Sound ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
 let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.042,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
