@@ -520,6 +520,15 @@ function drawLiveLeaderboards(){
   }
  }
 }
+function drawHeroEquipment(x,y,lv,member,side,top){
+ const tier=heroTier(lv),enemy=side==='sieger',c=enemy?['#7e3349','#ac4253','#d45358','#e07768','#ff8f73'][tier]:['#8caaad','#6caec7','#6d9dff','#dec479','#ffe48d'][tier];
+ if(tier>=1)rect(x-11,y-29,22,4,c);
+ if(tier>=2){rect(x-20,y-20,7,11,c);rect(x+13,y-20,7,11,c);}
+ if(tier>=3){rect(x+14,y-23,4,27,enemy?'#ff5b56':'#a8e9ff');rect(x-17,y-8,6,17,c);}
+ if(tier>=4){rect(x-9,y-34,18,4,c);rect(x-8,y-40,4,8,c);rect(x+5,y-40,4,8,c);}
+ if(member){ctx.save();ctx.globalAlpha=.3+.1*Math.sin(game.time*4);ctx.fillStyle=enemy?'#e83a8d':'#e960d3';ctx.beginPath();ctx.arc(x,y-13,22+tier*2,0,Math.PI*2);ctx.fill();ctx.restore();}
+ if(top)text(enemy?'♛':'♕',x,y-43,enemy?'#ff9999':'#fff0a1',16,'center');
+}
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
  rect(0,0,480,854,theme.sky);rect(0,135,480,180,theme.haze);rect(0,315,480,425,theme.ground);
