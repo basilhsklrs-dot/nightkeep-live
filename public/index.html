@@ -705,9 +705,12 @@ function drawPremiumAtmosphere(t,theme){
 function smallImpact(x,y,color,age){if(age<0||age>.22)return;ctx.save();ctx.globalAlpha=1-age/.22;ctx.strokeStyle=color;ctx.lineWidth=2;for(let i=0;i<4;i++){const a=i*Math.PI/2+age*5;const r=4+age*38;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r);ctx.lineTo(x+Math.cos(a)*(r+6),y+Math.sin(a)*(r+6));ctx.stroke();}ctx.restore();}
 // Fifteen-minute VISUAL ONLY showcase: no fake TikTok events, purchases or persistent players.
 const SHOWCASE_ID='nightkeep.visual-showcase.20261024';
-const SHOWCASE_LENGTH=15*60*1000;
+const SHOWCASE_LENGTH=2*60*1000;
 let showcaseEnd=Number(store.get(SHOWCASE_ID)||0);
 if(!showcaseEnd){showcaseEnd=Date.now()+SHOWCASE_LENGTH;store.set(SHOWCASE_ID,String(showcaseEnd));}
+// Shorten an already-running fifteen-minute showcase without restarting it.
+const originalStart=showcaseEnd-15*60*1000;
+if(showcaseEnd-originalStart===15*60*1000){const shorterEnd=originalStart+SHOWCASE_LENGTH;if(showcaseEnd>shorterEnd){showcaseEnd=shorterEnd;store.set(SHOWCASE_ID,String(showcaseEnd));}}
 const SHOWCASE_LEVELS=[1,5,10,20,30];
 const SHOWCASE_GIFTS=[
  ['rose','ROSE','XP + HERO POWER / HEAL'],
@@ -720,7 +723,7 @@ const SHOWCASE_GIFTS=[
 ];
 function drawTimedShowcase(){
  const left=showcaseEnd-Date.now();if(left<=0)return;
- const elapsed=(SHOWCASE_LENGTH-left)/1000,idx=Math.floor(elapsed/9)%SHOWCASE_GIFTS.length;
+ const elapsed=Math.max(0,(SHOWCASE_LENGTH-left)/1000),idx=Math.floor(elapsed/9)%SHOWCASE_GIFTS.length;
  const gift=SHOWCASE_GIFTS[idx],phase=elapsed%9;
  // Small staged group, separate from player lists and TikTok events.
  ctx.save();
