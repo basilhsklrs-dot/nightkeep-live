@@ -307,7 +307,7 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,displayNames:old.displayNames,engagement:old.engagement,jobs:old.jobs,boost:old.boost,shield:old.shield});
  feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
 }
 function update(dt){
@@ -496,6 +496,7 @@ const LIKE_TARGETS=[100,500,1000];
 function engagementTick(){
  game.engagement ||= {likes:0,milestone:0,bossAt:180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
  const z=game.engagement;
+ z.bossAt ??= Math.max(180,Math.floor(game.time/180+1)*180);z.likes ||= 0;z.milestone ||= 0;
  if(game.time>=z.bossAt){z.bossAt+=180;z.bossActive=true;spawn('dragon',1.6,'NIGHTKEEP','cosmic');eventBanner={user:'NIGHTKEEP',title:'⚔ WORLD BOSS! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};beep('dragon');}
  const next=LIKE_TARGETS[z.milestone%LIKE_TARGETS.length];
  if(z.likes>=next){z.likes-=next;z.milestone++;game.shield=Math.min(60,(game.shield||0)+10);game.hp=Math.min(1000,game.hp+100);game.boost=Math.min(400,game.boost+50);eventBanner={user:'ALL VIEWERS',title:'🎉 LIKE MILESTONE! HEAL + SHIELD + POWER!',until:Date.now()+6500,color:'#aaf8c9'};beep('level');}
@@ -544,9 +545,10 @@ function drawPortrait(){
  }
  for(let i=0;i<game.defenders.length+3;i++){
   const p=portraitDefender(i),d=i<3?null:game.defenders[i-3];
+  if(d&&(d.level>=6||d.member)){ctx.save();ctx.globalAlpha=.25+.12*Math.sin(t*4);ctx.fillStyle=d.member?'#ff62b8':d.level>=15?'#ffe18b':'#75caff';ctx.beginPath();ctx.arc(p.x,p.y-13,d.level>=15?23:17,0,Math.PI*2);ctx.fill();ctx.restore();}
   sprite(knight,p.x-11,p.y-25,2.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
   if(d&&(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10)){
-   const name=(d.member?'♥ ':'')+d.name.slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
+   const name=(d.member?'✦ ':'')+displayHeroName(d.name).slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
    rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ff7ac7':(d.level>=15?'#ffde83':d.level>=6?'#8ecfff':'#e3f0df'),10,'center');text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,d.member?'#ffafd7':'#a6d7bd',9,'center');
   }
  }
