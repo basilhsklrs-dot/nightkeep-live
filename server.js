@@ -2,10 +2,11 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
-const streamer=(process.env.TIKTOK_USERNAME||'spao.mpales_').replace(/^@/,'');
+const streamer=(process.env.TIKTOK_USERNAME||'aisxr0s').replace(/^@/,'');
 const demo=process.env.DEMO_MODE==='true';
+let lastError='';
 const server=http.createServer(async(req,res)=>{
- if(req.url==='/healthz'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,streamer,mode:demo?'demo':'real',status}));return;}
+ if(req.url==='/healthz'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,streamer,mode:demo?'demo':'real',status,room,connected:status==='live',lastError}));return;}
  if(req.method==='GET' && !new URL(req.url,'http://localhost').pathname.startsWith('/api/') && !new URL(req.url,'http://localhost').pathname.startsWith('/healthz')){try{let h=await readFile(new URL('./public/index.html',import.meta.url));res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(h);}catch{res.writeHead(500);res.end('Frontend missing')}return;}
  res.writeHead(404);res.end('Not found');
 });
@@ -41,8 +42,8 @@ async function connect(){
   connection.on('disconnected',()=>{status='disconnected';send({type:'status',status});retry()});
   connection.on('error',e=>console.warn('TikTok error',String(e?.message||e).slice(0,200)));
   const result=await connection.connect();
-  room=String(result?.roomId||'');status='live';attempt=0;send({type:'status',status,streamer,room});
- }catch(err){status='offline';console.warn('TikTok not connected',String(err?.message||err).slice(0,200));send({type:'status',status});retry();}
+  room=String(result?.roomId||'');status='live';lastError='';attempt=0;send({type:'status',status,streamer,room});
+ }catch(err){status='offline';lastError=String(err?.message||err).slice(0,300);console.warn('TikTok not connected',lastError);send({type:'status',status,error:lastError});retry();}
 }
 let timer=null;
 function retry(){if(timer)return;const wait=Math.min(60000,5000*2**Math.min(attempt++,4));timer=setTimeout(()=>{timer=null;connect()},wait)}
