@@ -437,7 +437,7 @@ function tower(x,y,w,h){
 }
 function drawCastle(t){
  rect(31,327,110,10,'#171d2b');rect(36,305,99,26,'#3b4053');tower(39,258,27,68);tower(112,249,28,79);tower(74,222,30,93);
- rect(64,283,53,43,'#55596b');for(let i=0;i<4;i++)rect(64+i*14,276,8,10,'#78798b');
+ rect(64,283,53,43,'#55596b');for(let yy=286;yy<323;yy+=9)for(let xx=67+(yy%2?5:0);xx<115;xx+=15){rect(xx,yy,11,1,'#89909c55');rect(xx+2,yy+1,1,5,'#22293865');}for(let i=0;i<4;i++)rect(64+i*14,276,8,10,'#78798b');
  rect(80,302,20,28,'#252739');rect(84,302,12,28,'#bd8252');rect(89,304,2,26,'#65504b');rect(85,312,10,2,'#594849');
  rect(88,181,2,29,'#9e91a8');poly([[90,181],[109,185+Math.sin(t*2)*2],[90,195]],'#b37b94');rect(90,184,3,7,'#edb788');
  rect(37,328,108,4,'#828195');rect(30,332,123,5,'#4e5664');
@@ -657,6 +657,30 @@ function drawHeroEquipment(x,y,lv,member,side,top){
  if(member){ctx.save();ctx.globalAlpha=.3+.1*Math.sin(game.time*4);ctx.fillStyle=enemy?'#e83a8d':'#e960d3';ctx.beginPath();ctx.arc(x,y-13,22+tier*2,0,Math.PI*2);ctx.fill();ctx.restore();}
  if(top)text(enemy?'♛':'♕',x,y-43,enemy?'#ff9999':'#fff0a1',16,'center');
 }
+function battleGroundDetail(t,theme){
+ ctx.save();
+ // Low contrast stones and two broken walls frame rather than obscure the combat.
+ for(let j=0;j<24;j++){const x=18+(j*83)%447,y=399+(j*67)%190;ctx.globalAlpha=.14;ctx.fillStyle=j%3?'#1a2433':'#e0b98e';ctx.beginPath();ctx.ellipse(x,y,5+(j%4)*2,2+(j%3),-.2,0,Math.PI*2);ctx.fill();}
+ ctx.globalAlpha=1;
+ for(const [x,y] of [[28,475],[444,463]]){rect(x-8,y-7,23,15,'#424252');rect(x-5,y-14,18,8,'#636878');rect(x-8,y-16,11,4,'#8b8a92');rect(x+3,y-11,2,9,'#303344');}
+ // Vertical edge vignette is extremely subtle to retain the stream's readability.
+ const v=ctx.createLinearGradient(0,0,480,0);v.addColorStop(0,'#080d1f38');v.addColorStop(.20,'#00000000');v.addColorStop(.80,'#00000000');v.addColorStop(1,'#080d1f38');ctx.fillStyle=v;ctx.fillRect(0,292,480,308);
+ ctx.restore();
+}
+function heroSilhouette(x,y,team,level,attackAge){
+ const siege=team==='sieger',tier=heroTier(level),cape=siege?'#70263f':'#42678c',trim=siege?'#f28ba0':'#bee8ec';
+ ctx.save();
+ const dash=attackAge>=0&&attackAge<.19?Math.sin(attackAge/.19*Math.PI)*5:0;
+ ctx.translate(x,y);ctx.fillStyle='#10152165';ctx.beginPath();ctx.ellipse(0,10,19,5,0,0,Math.PI*2);ctx.fill();
+ // Cape, shoulder, shield and raised weapon make both factions recognizable at a glance.
+ poly([[-10,-19],[-19,-8],[-12,8],[2,4],[9,-15]],cape);
+ rect(-12,-22,23,5,tier>=2?trim:siege?'#994357':'#628faf');
+ poly([[-15,-20],[-23,-16],[-23,0],[-13,5],[-10,-2]],siege?'#8e3748':'#79a4bd');
+ ctx.strokeStyle=trim;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(11,-12);ctx.lineTo(20+dash,-36-dash);ctx.stroke();
+ if(tier>=2){rect(-9,-31,17,3,trim);rect(-4,-35,7,6,trim);}
+ if(tier>=3){poly([[-8,5],[-16,20],[-3,11]],cape);}
+ ctx.restore();
+}
 function drawPremiumAtmosphere(t,theme){
  const g=ctx.createLinearGradient(0,65,0,510);g.addColorStop(0,'#080c1b00');g.addColorStop(.66,'#111a2b20');g.addColorStop(1,'#f1bb6c16');ctx.fillStyle=g;ctx.fillRect(0,70,480,460);
  for(let j=0;j<5;j++){const x=(j*121+35+Math.sin(t*.17+j)*21)%480,y=292+j*39;ctx.save();ctx.globalAlpha=.07;ctx.fillStyle='#cde1e6';ctx.beginPath();ctx.ellipse(x,y,62,12,0,0,Math.PI*2);ctx.fill();ctx.restore();}
@@ -676,14 +700,14 @@ function drawPortrait(){
  poly([[237,292],[249,292],[266,428],[244,504],[261,599],[223,599],[231,498],[214,424]],theme.trail);
  for(let i=0;i<20;i++){const y=330+(i*37)%280;pine(i%2?440-(i%4)*15:28+(i%4)*12,y,26+(i%3)*9,theme.tree)}
  for(let i=0;i<60;i++){const x=(i*71)%480,y=345+(i*47)%371;if(x<150||x>330)rect(x,y,3,2,i%4?theme.ground:theme.grass)}
- drawStageDecor(true,t,state);drawPremiumAtmosphere(t,theme);
+ drawStageDecor(true,t,state);drawPremiumAtmosphere(t,theme);battleGroundDetail(t,theme);
  // Castle stays at the bottom. The route and defenders remain clear above it.
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
-  if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else drawEnemy(e,p.x,p.y,true);
+  if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {drawEnemy(e,p.x,p.y,true);if(e.siegerHero)heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100));}
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){
@@ -702,6 +726,7 @@ function drawPortrait(){
   const [armor,light]=palettes[tier];
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
   const attackAge=t-(d?.lastAttackAt??-100);const attacking=attackAge>=0&&attackAge<.16;if(attacking){ctx.save();ctx.globalAlpha=1-attackAge/.16;ctx.strokeStyle='#a0d7e4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+10,p.y-19,13,-1.4,.3);ctx.stroke();ctx.restore();}
+  heroSilhouette(p.x,p.y,'defender',lv,attackAge);
   sprite(knight,p.x-11,p.y-25,3.45,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
   if(d){
    if(d.lastSiegeHitAt!=null)smallImpact(p.x,p.y-23,'#f590aa',t-d.lastSiegeHitAt);if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.4){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.4;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
