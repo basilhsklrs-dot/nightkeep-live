@@ -503,21 +503,30 @@ function engagementTick(){
 }
 function drawEngagementHud(){
  const z=game.engagement||{},next=LIKE_TARGETS[(z.milestone||0)%3],left=Math.max(0,Math.ceil((z.bossAt||180)-game.time));
- rect(14,467,452,57,'#131a2aec');rect(14,467,452,2,'#ffd985');
+ rect(14,467,452,35,'#131a2ab7');rect(14,467,452,2,'#ffd985');
  text('⚔ BOSS IN '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'    ♥ LIKES '+(z.likes||0)+'/'+next,240,488,'#ffe8b4',14,'center');
- text('🛡 DEFENDERS '+(z.defenseScore||0)+'   VS   '+(z.siegeScore||0)+' SIEGERS ⚔',240,511,'#f2c7dc',12,'center');
+ text('🛡 '+(z.defenseScore||0)+'   VS   '+(z.siegeScore||0)+' ⚔',240,500,'#f2c7dc',12,'center');
 }
 
 function drawLiveLeaderboards(){
- const players=game.players||[];
- const defenders=players.map(p=>({name:p.displayName||displayHeroName(p.user),score:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
- const siegers=players.map(p=>({name:p.displayName||displayHeroName(p.user),score:(p.hostile||0)*20})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
- const panels=[{x:9,title:'TOP 3 DEFENDERS',items:defenders,color:'#a8eac9'},{x:247,title:'TOP 3 SIEGERS',items:siegers,color:'#ffb6cb'}];
- for(const panel of panels){
-  rect(panel.x,360,224,98,'#11182de8');rect(panel.x,360,224,3,panel.color);
-  text(panel.title,panel.x+112,377,panel.color,12,'center');
-  for(let i=0;i<3;i++){const p=panel.items[i];text(p?String(i+1)+'. '+String(p.name).slice(0,14):String(i+1)+'. ---',panel.x+7,397+i*19,'#f1edf4',10);if(p)text(String(p.score),panel.x+213,397+i*19,panel.color,10,'right');}
- }
+ const players=game.players||[],ranking=(side)=>players.map(p=>({name:p.displayName||displayHeroName(p.user),score:side==='def'?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+ const panels=[{x:8,title:'🛡 TOP DEFENDERS',items:ranking('def'),color:'#a8eac9'},{x:246,title:'⚔ TOP SIEGERS',items:ranking('siege'),color:'#ffb6cb'}];
+ for(const p of panels){rect(p.x,359,225,64,'#141c2dc7');rect(p.x,359,225,2,p.color);text(p.title,p.x+112,371,p.color,10,'center');
+ for(let i=0;i<3;i++){const q=p.items[i];text(q?(i+1)+'. '+q.name.slice(0,13)+' '+q.score:(i+1)+'. —',p.x+8,385+i*12,'#e7eef1',9);}}
+}
+function heroTier(level){return level>=15?4:level>=10?3:level>=6?2:level>=3?1:0;}
+function drawHeroEquipment(x,y,level,member,side='defender',top=false){
+ const tier=heroTier(level),enemy=side==='sieger',primary=enemy?'#c65664':'#75beec',metal=tier>=3?'#f5d383':tier>=2?'#cad7e4':primary;
+ ctx.save();ctx.translate(x,y);
+ if(tier>=2||member){ctx.globalAlpha=.18+.08*Math.sin(game.time*5);ctx.fillStyle=member?'#f578df':enemy?'#b92758':'#65c7ff';ctx.beginPath();ctx.arc(0,-14,14+tier*3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+ // Equipment and silhouette become visibly distinct at level thresholds.
+ if(tier>=1){rect(-8,-28,16,7,metal);rect(-12,-19,5,13,metal);rect(7,-19,5,13,metal);}
+ if(tier>=2){rect(enemy?9:-15,-12,6,19,enemy?'#d35362':'#8bd0e9');rect(enemy?13:-12,-22,3,16,'#f1e1c4');}
+ if(tier>=3){poly([[-9,-21],[0,-31],[9,-21],[9,-12],[-9,-12]],enemy?'#762136':'#386b9c');rect(-11,-26,22,3,metal);}
+ if(tier>=4){rect(-14,-32,28,4,'#ffd676');rect(-9,-37,5,6,'#ffd676');rect(4,-37,5,6,'#ffd676');}
+ if(member){text('♥',0,-43-tier,'#ff8fd7',12,'center');}
+ if(top){text(enemy?'♛':'♕',0,-52-tier,'#ffe29b',13,'center');}
+ ctx.restore();
 }
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
@@ -539,14 +548,16 @@ function drawPortrait(){
   const p=portraitEnemy(e);if(p.y<286)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   drawEnemy(e,p.x,p.y,true);
+  if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
   if(e.kind==='mini'||e.kind==='dragon'||(game.enemies.length<16&&e.hp<e.maxHp)){const w=e.kind==='dragon'?96:35,yy=p.y-(e.kind==='dragon'?85:52);rect(p.x-w/2,yy,w,5,'#262235');rect(p.x-w/2,yy,w*e.hp/e.maxHp,4,'#d990a8');}
-  if(e.user&&['mini','dragon'].includes(e.kind))text('@'+e.user.slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
+  if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
   if(e.weight>1)text('×'+e.weight,p.x,p.y+25,'#f2b0cc',11,'center');
  }
  for(let i=0;i<game.defenders.length+3;i++){
   const p=portraitDefender(i),d=i<3?null:game.defenders[i-3];
   if(d&&(d.level>=6||d.member)){ctx.save();ctx.globalAlpha=.25+.12*Math.sin(t*4);ctx.fillStyle=d.member?'#ff62b8':d.level>=15?'#ffe18b':'#75caff';ctx.beginPath();ctx.arc(p.x,p.y-13,d.level>=15?23:17,0,Math.PI*2);ctx.fill();ctx.restore();}
   sprite(knight,p.x-11,p.y-25,2.8,{h:'#8f9fae',H:'#c8d1d5',s:'#b99d88',S:'#efd4b5',a:d?'#638f96':'#a58964',A:d?'#92c4c4':'#e1c28c',b:'#393b50',x:'#d5d5ce'});
+  if(d){const top=(game.players||[]).slice().sort((a,b)=>((b.kills||0)*20+(b.support||0)*12+(b.likes||0)/10)-((a.kills||0)*20+(a.support||0)*12+(a.likes||0)/10)).slice(0,3).some(v=>v.user===d.name);drawHeroEquipment(p.x,p.y,d.level||1,!!d.member,'defender',top);}
   if(d&&(game.defenders.length<=5||(i-3)%10===Math.floor(t/2)%10)){
    const name=(d.member?'✦ ':'')+displayHeroName(d.name).slice(0,10)+' LV'+(d.level||1),width=name.length*6+6,yy=p.y-36-(i%2)*15;
    rect(p.x-width/2,yy-9,width,15,'#17262cd9');text(name,p.x,yy,d.member?'#ff7ac7':(d.level>=15?'#ffde83':d.level>=6?'#8ecfff':'#e3f0df'),10,'center');text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,d.member?'#ffafd7':'#a6d7bd',9,'center');
@@ -576,8 +587,8 @@ function drawPortrait(){
  drawGiftGuide();
  // TikTok-safe high-contrast call to action, shown above the action area.
  rect(14,302,452,48,'#12172ded');rect(14,302,452,3,'#f5cc73');
- text('⚔ FOLLOW = JOIN THE BATTLE AS YOUR HERO!',240,320,'#fff1bd',15,'center');
- text('💗 MEMBER HEART = ELITE POWER + EXTRA XP!',240,340,'#ffb8db',13,'center');
+ text('⚔ FOLLOW = JOIN AS HERO',240,320,'#fff1bd',14,'center');
+ text('💗 MEMBER HEART = ELITE BUFF',240,340,'#ffb8db',12,'center');
  drawLiveLeaderboards();drawEngagementHud();
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
