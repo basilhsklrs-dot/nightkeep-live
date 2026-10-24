@@ -226,7 +226,7 @@ function applyEvent(e){
  if(e.user&&e.displayName){const id=String(e.user).slice(0,64),nick=String(e.displayName).slice(0,64);game.displayNames ||= {};game.displayNames[id]=nick;const p=(game.players||[]).find(v=>v.user===id);if(p)p.displayName=nick;const h=game.heroes?.[id];if(h)h.displayName=nick;const d=(game.defenders||[]).find(v=>v.name===id);if(d)d.displayName=nick;}
  const count=clamp(Number(e.count)||1,1,100000);
  if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger'){game.defenders=game.defenders.filter(d=>d.name!==e.user);summonSieger(e.user);}else{game.enemies=game.enemies.filter(v=>!(v.siegerHero&&v.user===e.user));addDefender(e.user);}eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
- if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);if(!game.lastJoinBanner||Date.now()-game.lastJoinBanner>7000){game.lastJoinBanner=Date.now();eventBanner={user:name,title:'CHOOSE TEAM: 1 🛡 DEFENDER / 2 ⚔ SIEGER',until:Date.now()+5500,color:'#a9e4c0'};}return;}
+ if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);if(!game.lastJoinBanner||Date.now()-game.lastJoinBanner>7000){game.lastJoinBanner=Date.now();eventBanner={user:name,title:'FREE TO PLAY! TAP ❤️ + TYPE 1 OR 2',until:Date.now()+5500,color:'#a9e4c0'};}return;}
  if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);if(game.teams[e.user]==='sieger')summonSieger(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(displayHeroName(e.user),'joined '+(game.teams[e.user]==='sieger'?'siegers':'defenders'),'#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
@@ -700,7 +700,7 @@ function drawPortrait(){
  // TikTok-safe high-contrast call to action, shown above the action area.
  rect(14,153,452,46,'#12172dcc');rect(14,153,452,3,'#f5cc73');
  text('1 = DEFENDER  🛡     2 = SIEGER ⚔',240,170,'#fff1bd',14,'center');
- text('CHANGE TEAM ANYTIME: TYPE 1 OR 2',240,189,'#ffb8db',12,'center');
+ text('❤️ TAP TO JOIN FREE · TYPE 1 OR 2',240,189,'#ffb8db',13,'center');
  drawLiveLeaderboards();drawEngagementHud();
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
@@ -709,6 +709,8 @@ function drawPortrait(){
  if(Date.now()<eventBanner.until){drawGiftIcon(eventBanner.skin||(eventBanner.color==='#8fe2ad'?'heart':'cosmic'),24,749,1.1);text(eventBanner.title.slice(0,39),241,eventBanner.comboTotal?756:763,eventBanner.color,12,'center');if(eventBanner.comboTotal)text(`COMBO ×${eventBanner.comboTotal} · BONUS +${eventBanner.bonus}%`,240,777,'#f5d49a',14,'center');text('@'+String(eventBanner.user).slice(0,30),240,eventBanner.comboTotal?798:784,'#f0e6dc',11,'center');}
  else{
   const tips=[
+   ['heart','TAP ❤️ TO JOIN — FREE!'],
+   ['heart','TAP ❤️ = LEVEL UP + HEAL'],
    ['rose','ROSE 1 COIN → HERO XP + POWER'],
    ['heart','FINGER HEART → BOOST YOUR HERO'],
    ['shadow','SUNGLASSES → BIGGER POWER BOOST'],
@@ -719,7 +721,7 @@ function drawPortrait(){
   ];
   const tip=tips[Math.floor(t/5)%tips.length];
   rect(16,727,448,82,'#111827e8');rect(16,727,448,2,'#f3c777');
-  text('🎁 GIFT GUIDE  ·  MORE COINS = MORE POWER',240,746,'#f4d58a',11,'center');
+  text('❤️ TAP TO FIGHT — FREE!  ·  GIFTS = EXTRA POWER',240,746,'#f4d58a',11,'center');
   drawGiftIcon(tip[0],34,762,.85);
   text(tip[1],251,769,'#ecf4e9',12,'center');
   text('1 = DEFENDER   🛡     2 = SIEGER ⚔',240,791,'#a6dfca',12,'center');
@@ -730,7 +732,7 @@ function drawPortrait(){
  // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
  rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
  text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+game.defenders.length,240,665,'#e7f3e8',17,'center');
- text('FOLLOW = YOUR HERO • LIKES = XP • MEMBER HEART = ELITE',240,692,'#f5d49a',11,'center');
+ text('❤️ TAP TO JOIN FREE · MORE TAPS = STRONGER HERO',240,692,'#f5d49a',13,'center');
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
 }
