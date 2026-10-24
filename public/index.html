@@ -212,13 +212,17 @@ function empowerBosses(id,bonus){
 function applyEvent(e){
  if(e.user&&e.displayName){const id=String(e.user).slice(0,64),nick=String(e.displayName).slice(0,64);game.displayNames ||= {};game.displayNames[id]=nick;const p=(game.players||[]).find(v=>v.user===id);if(p)p.displayName=nick;const h=game.heroes?.[id];if(h)h.displayName=nick;const d=(game.defenders||[]).find(v=>v.name===id);if(d)d.displayName=nick;}
  const count=clamp(Number(e.count)||1,1,100000);
+ if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
  if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);eventBanner={user:'@'+name,title:'WELCOME! FOLLOW TO JOIN THE BATTLE ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Welcome! FOLLOW to join the battle as your own hero!','#a9e4c0');return;}
  if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
- if(e.type==='follow'){addDefender(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
+ if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
  if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  grantXp(e.user,count*10);
+ const assigned=(game.teams||{})[e.user]||'defender';
+ const coins=Math.max(0,Number(e.coins)||0)*count;
+ if(coins>0){game.engagement||={};if(assigned==='sieger'){const boss=(game.enemies||[]).find(v=>v.worldBoss&&v.hp>0);if(boss){const extra=Math.min(25000,coins*30);boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);eventBanner={user:displayHeroName(e.user),title:'⚔ BOSS EMPOWERED +'+coins+' COINS',until:Date.now()+5000,color:'#ff93b0'};}else enqueue('fast',Math.min(30,Math.max(1,Math.ceil(coins/3))),e.user,'goblin');game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;}else{game.hp=Math.min(1000,game.hp+Math.min(700,coins*8));game.shield=Math.min(60,(game.shield||0)+Math.min(20,coins*.3));game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;}player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;beep(assigned==='sieger'?'dragon':'heal');return;}
  const progress=giftProgress(e);if(!progress)return;
  const {id,previous,total,bonus,priorBonus}=progress,c=progress.count,skin=giftSkin(e);
  const comboLabel=`COMBO ×${total} · BONUS +${bonus}%`;
@@ -255,7 +259,7 @@ function receive(e){
  }
  if(e.type==='status'){setStatus(e);return;}
  if(e.type==='pong'){if(e.status)setStatus(e.status);return;}
- if(!['like','gift','follow'].includes(e.type)||e.instance!==instance||e.seq<=lastSeq)return;
+ if(!['like','gift','follow','team'].includes(e.type)||e.instance!==instance||e.seq<=lastSeq)return;
  applyEvent(e);lastSeq=e.seq;lastEventAt=e.at||Date.now();
  // Checkpoint with seq AND state together; replay resumes after the applied event.
  if(performance.now()-saveAt>500)save();
@@ -497,14 +501,14 @@ function engagementTick(){
  game.engagement ||= {likes:0,milestone:0,bossAt:180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
  const z=game.engagement;
  z.bossAt ??= Math.max(180,Math.floor(game.time/180+1)*180);z.likes ||= 0;z.milestone ||= 0;
- if(game.time>=z.bossAt){z.bossAt+=180;z.bossActive=true;spawn('dragon',1.6,'NIGHTKEEP','cosmic');eventBanner={user:'NIGHTKEEP',title:'⚔ WORLD BOSS! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};beep('dragon');}
+ if(game.time>=z.bossAt){z.bossAt+=180;z.bossActive=true;if(spawn('dragon',2.8,'NIGHTKEEP','cosmic'))game.enemies[game.enemies.length-1].worldBoss=true;eventBanner={user:'NIGHTKEEP',title:'⚔ WORLD BOSS! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};beep('dragon');}
  const next=LIKE_TARGETS[z.milestone%LIKE_TARGETS.length];
  if(z.likes>=next){z.likes-=next;z.milestone++;game.shield=Math.min(60,(game.shield||0)+10);game.hp=Math.min(1000,game.hp+100);game.boost=Math.min(400,game.boost+50);eventBanner={user:'ALL VIEWERS',title:'🎉 LIKE MILESTONE! HEAL + SHIELD + POWER!',until:Date.now()+6500,color:'#aaf8c9'};beep('level');}
 }
 function drawEngagementHud(){
  const z=game.engagement||{},next=LIKE_TARGETS[(z.milestone||0)%3],left=Math.max(0,Math.ceil((z.bossAt||180)-game.time));
- rect(12,413,456,36,'#111827b8');rect(12,413,456,2,'#f2cd83');
- text('BOSS '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'   ♥ '+(z.likes||0)+'/'+next+'   🛡 '+(z.defenseScore||0)+' : '+(z.siegeScore||0)+' ⚔',240,435,'#ffe5ae',13,'center');
+ rect(12,267,456,35,'#111827b8');rect(12,267,456,2,'#f2cd83');
+ text('BOSS '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'   ♥ '+(z.likes||0)+'/'+next+'   🛡 '+(z.defenseScore||0)+' : '+(z.siegeScore||0)+' ⚔',240,289,'#ffe5ae',13,'center');
 }
 
 function heroTier(lv){return lv>=15?4:lv>=10?3:lv>=6?2:lv>=3?1:0}
@@ -512,11 +516,11 @@ function topHeroIds(side){return (game.players||[]).map(p=>({id:p.user,score:sid
 function drawLiveLeaderboards(){
  const def=topHeroIds('defense'),siege=topHeroIds('siege');
  for(const [x,label,ids,color] of [[10,'🛡 TOP DEFENDERS',def,'#a8eac9'],[246,'⚔ TOP SIEGERS',siege,'#ffb6cb']]){
-  rect(x,349,224,58,'#11182db8');rect(x,349,224,2,color);
-  text(label,x+112,362,color,11,'center');
+  rect(x,205,224,58,'#11182db8');rect(x,205,224,2,color);
+  text(label,x+112,218,color,11,'center');
   for(let j=0;j<3;j++){const id=ids[j],p=(game.players||[]).find(q=>q.user===id),score=p?(x===10?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20):0;
-   text(id?String(j+1)+'. '+displayHeroName(id).slice(0,13):String(j+1)+'. —',x+5,376+j*10,'#f3f0ed',9);
-   if(id)text(String(score),x+216,376+j*10,color,9,'right');
+   text(id?String(j+1)+'. '+displayHeroName(id).slice(0,13):String(j+1)+'. —',x+5,232+j*10,'#f3f0ed',9);
+   if(id)text(String(score),x+216,232+j*10,color,9,'right');
   }
  }
 }
@@ -543,12 +547,12 @@ function drawPortrait(){
  for(let i=0;i<60;i++){const x=(i*71)%480,y=345+(i*47)%371;if(x<150||x>330)rect(x,y,3,2,i%4?theme.ground:theme.grass)}
  drawStageDecor(true,t,state);
  // Castle stays at the bottom. The route and defenders remain clear above it.
- ctx.save();ctx.translate(150,385);drawCastle(t);ctx.restore();
+ ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
   const p=portraitEnemy(e);if(p.y<286)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
-  drawEnemy(e,p.x,p.y,true);
+  if(e.worldBoss){ctx.save();ctx.shadowColor='#e5417d';ctx.shadowBlur=28;ctx.translate(p.x,p.y);ctx.scale(1.35,1.35);ctx.translate(-p.x,-p.y);drawEnemy(e,p.x,p.y,true);ctx.restore();text('☠ WORLD BOSS ☠',p.x,p.y-111,'#fff0af',17,'center');}else drawEnemy(e,p.x,p.y,true);
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
   if(e.kind==='mini'||e.kind==='dragon'||(game.enemies.length<16&&e.hp<e.maxHp)){const w=e.kind==='dragon'?96:35,yy=p.y-(e.kind==='dragon'?85:52);rect(p.x-w/2,yy,w,5,'#262235');rect(p.x-w/2,yy,w*e.hp/e.maxHp,4,'#d990a8');}
   if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
@@ -595,11 +599,11 @@ function drawPortrait(){
  text(`WAVE ${state.wave}/3  ·  ROUND ${game.round}  ·  DEFENDERS ${game.defenders.length+3}`,240,91,'#cbd3dc',11,'center');
  text('CASTLE HP',47,106,'#bdc8c5',10);text(`${Math.max(0,Math.ceil(game.hp))}/1000`,407,106,'#d9e5d9',11,'right');
  rect(47,114,360,11,'#060b14');rect(49,116,356*Math.max(0,game.hp)/1000,7,game.hp<260?'#df8f9f':'#8fe2ad');
- drawGiftGuide();
+ // Gift legend removed from on-air stage to return space to the battle.
  // TikTok-safe high-contrast call to action, shown above the action area.
- rect(14,301,452,45,'#12172dcb');rect(14,302,452,3,'#f5cc73');
- text('⚔ FOLLOW = JOIN AS HERO',240,320,'#fff1bd',14,'center');
- text('💗 MEMBER HEART = ELITE BUFF',240,340,'#ffb8db',12,'center');
+ rect(14,153,452,46,'#12172dcc');rect(14,153,452,3,'#f5cc73');
+ text('FOLLOW • TYPE DEFENDER OR SIEGER',240,170,'#fff1bd',14,'center');
+ text('♥ LIKES = XP • MEMBER HEART = ELITE',240,189,'#ffb8db',12,'center');
  drawLiveLeaderboards();drawEngagementHud();
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
@@ -643,8 +647,9 @@ window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn||audioConte
 let musicStep=0,musicBus=null,musicBusContext=null;
 function getMusicBus(){if(musicBus&&musicBusContext===audioContext)return musicBus;const c=audioContext.createDynamicsCompressor();c.threshold.value=-18;c.knee.value=14;c.ratio.value=5;c.attack.value=.008;c.release.value=.18;c.connect(audioContext.destination);musicBus=c;musicBusContext=audioContext;return c;}
 // Dynamic dark-fantasy battle score with percussion, bass pulse and rotating harmonies.
-let musicBeat=0;
+let musicBeat=0,lastMusicBeat=0;
 setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;
+ const activeBoss=(game.enemies||[]).some(e=>e.worldBoss&&e.hp>0);if(performance.now()-lastMusicBeat<(activeBoss?165:330))return;lastMusicBeat=performance.now();
  const a=audioContext,now=a.currentTime,beat=musicBeat++,section=Math.floor(beat/16)%4;
  const roots=[110,98,130.81,87.31],root=roots[section];
  const melody=[1,1.5,2,1.5,1.334,1.5,2,1.78,1,1.5,1.78,2,1.334,1.5,1.122,1.5];
@@ -654,7 +659,7 @@ setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||doc
  if(beat%4===0){tone(60,.15,.2,'sine');tone(root*2,.43,.07,'sawtooth')}
  if(beat%4===2)tone(165,.1,.13,'square');
  if(beat%8===7)tone(root*4,.11,.1,'triangle');
-},335);
+},90);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
