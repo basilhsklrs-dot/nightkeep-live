@@ -152,6 +152,15 @@ function addDefender(name,lease=HERO_BASE_MS){
  if(!game.followIds.includes(id)){game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();}
  return d;
 }
+function summonSieger(user,coins=0){
+ const id=String(user||'viewer').slice(0,64),h=heroRecord(id);
+ game.teams||={};game.teams[id]='sieger';h.team='sieger';
+ const now=Date.now();h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+Math.max(120000,coins*2000),now+HERO_MAX_MS);
+ let e=(game.enemies||[]).find(e=>e.siegerHero&&e.user===id&&e.hp>0);
+ if(!e){if(game.enemies.length>=MAX_ENEMIES)return;const scale=1+Math.min(10,(h.level||1)*.25);if(!spawn('mini',.4*scale,id,'shadow'))return;e=game.enemies[game.enemies.length-1];e.siegerHero=true;e.kind='mini';e.speed=13;e.damage=30+Math.min(240,(h.level||1)*6);e.maxHp=Math.max(120,e.maxHp);e.hp=e.maxHp;feed(displayHeroName(id),'SIEGER ENTERS THE BATTLE!','#ff9ca9');}
+ else {e.hp=Math.min(e.maxHp,e.hp+Math.max(20,coins*15));}
+ e.siegerLevel=h.level||1;e.siegerMember=!!h.member;e.activeUntil=h.activeUntil;
+}
 function grantXp(user,amount,member=false){
  const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0);
  h.xp+=gain;if(member)h.member=true;const old=h.level||1;
@@ -213,14 +222,15 @@ function empowerBosses(id,bonus){
 function applyEvent(e){
  if(e.user&&e.displayName){const id=String(e.user).slice(0,64),nick=String(e.displayName).slice(0,64);game.displayNames ||= {};game.displayNames[id]=nick;const p=(game.players||[]).find(v=>v.user===id);if(p)p.displayName=nick;const h=game.heroes?.[id];if(h)h.displayName=nick;const d=(game.defenders||[]).find(v=>v.name===id);if(d)d.displayName=nick;}
  const count=clamp(Number(e.count)||1,1,100000);
- if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger')game.defenders=game.defenders.filter(d=>d.name!==e.user);eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
+ if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger'){game.defenders=game.defenders.filter(d=>d.name!==e.user);summonSieger(e.user);}else game.enemies=game.enemies.filter(v=>!(v.siegerHero&&v.user===e.user));eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
  if(e.type==='join'){const name=displayHeroName(e.user).slice(0,40);eventBanner={user:'@'+name,title:'WELCOME! FOLLOW TO JOIN THE BATTLE ⚔',until:Date.now()+5000,color:'#a9e4c0'};feed(name,'Welcome! FOLLOW to join the battle as your own hero!','#a9e4c0');return;}
- if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
- if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
+ if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=count;game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
+ if(e.type==='follow'){game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);if(game.teams[e.user]==='sieger')summonSieger(e.user);eventBanner={user:e.user,title:'NEW HERO JOINED',until:Date.now()+5500,color:'#8fe2ad'};feed(e.user,'joined the castle defense.','#8fe2ad');beep('follow');return;}
  if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
  if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  grantXp(e.user,count*10);
+ if((game.teams||{})[e.user]==='sieger')summonSieger(e.user,Math.max(0,Number(e.coins)||0)*count);
  const assigned=(game.teams||{})[e.user]||'defender';
  const coins=Math.max(0,Number(e.coins)||0)*count;
  if(coins>0){game.engagement||={};if(assigned==='sieger'){const boss=(game.enemies||[]).find(v=>v.worldBoss&&v.hp>0);if(boss){const extra=Math.min(25000,coins*30);boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);eventBanner={user:displayHeroName(e.user),title:'⚔ BOSS EMPOWERED +'+coins+' COINS',until:Date.now()+5000,color:'#ff93b0'};}else enqueue('fast',Math.min(30,Math.max(1,Math.ceil(coins/3))),e.user,'goblin');game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;}else{game.hp=Math.min(1000,game.hp+Math.min(700,coins*8));game.shield=Math.min(60,(game.shield||0)+Math.min(20,coins*.3));game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;}player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;beep(assigned==='sieger'?'dragon':'heal');return;}
@@ -554,6 +564,7 @@ function drawPortrait(){
   const p=portraitEnemy(e);if(p.y<286)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){ctx.save();ctx.shadowColor='#e5417d';ctx.shadowBlur=28;ctx.translate(p.x,p.y);ctx.scale(1.35,1.35);ctx.translate(-p.x,-p.y);drawEnemy(e,p.x,p.y,true);ctx.restore();text('☠ WORLD BOSS ☠',p.x,p.y-111,'#fff0af',17,'center');}else drawEnemy(e,p.x,p.y,true);
+  if(e.siegerHero){text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');}
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
   if(e.kind==='mini'||e.kind==='dragon'||(game.enemies.length<16&&e.hp<e.maxHp)){const w=e.kind==='dragon'?96:35,yy=p.y-(e.kind==='dragon'?85:52);rect(p.x-w/2,yy,w,5,'#262235');rect(p.x-w/2,yy,w*e.hp/e.maxHp,4,'#d990a8');}
   if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
