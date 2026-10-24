@@ -541,7 +541,18 @@ function engagementTick(){
  game.engagement ||= {likes:0,milestone:0,bossAt:180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
  const z=game.engagement;
  z.bossAt ??= Math.max(180,Math.floor(game.time/180+1)*180);z.likes ||= 0;z.milestone ||= 0;
- if(game.time>=z.bossAt){z.bossAt+=180;z.bossActive=true;if(spawn('dragon',2.8,'NIGHTKEEP','cosmic'))game.enemies[game.enemies.length-1].worldBoss=true;eventBanner={user:'NIGHTKEEP',title:'⚔ WORLD BOSS! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};beep('dragon');}
+ if(game.time>=z.bossAt){
+ z.bossAt+=180;
+ // Reserve room for the world boss instead of silently failing at the enemy cap.
+ if(game.enemies.length>=MAX_ENEMIES)game.enemies.splice(game.enemies.findIndex(e=>!e.worldBoss),1);
+ if(spawn('dragon',2.8,'NIGHTKEEP','cosmic')){
+  const boss=game.enemies[game.enemies.length-1];
+  boss.worldBoss=true;boss.x=345;boss.y=310;boss.speed=4;boss.attack=1.5;boss.maxHp=Math.max(15000,boss.maxHp);boss.hp=boss.maxHp;
+  z.bossActive=true;
+  eventBanner={user:'WORLD BOSS',title:'⚔ WORLD BOSS ARRIVED! DEFEND THE CASTLE!',until:Date.now()+9000,color:'#ffd77e'};
+  beep('dragon');
+ }
+}
  const next=LIKE_TARGETS[z.milestone%LIKE_TARGETS.length];
  if(z.likes>=next){z.likes-=next;z.milestone++;game.shield=Math.min(60,(game.shield||0)+10);game.hp=Math.min(1000,game.hp+100);game.boost=Math.min(400,game.boost+50);eventBanner={user:'ALL VIEWERS',title:'🎉 LIKE MILESTONE! HEAL + SHIELD + POWER!',until:Date.now()+6500,color:'#aaf8c9'};beep('level');}
 }
@@ -590,9 +601,9 @@ function drawPortrait(){
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
-  const p=portraitEnemy(e);if(p.y<286)continue;
+  const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
-  if(e.worldBoss){ctx.save();ctx.shadowColor='#e5417d';ctx.shadowBlur=28;ctx.translate(p.x,p.y);ctx.scale(1.35,1.35);ctx.translate(-p.x,-p.y);drawEnemy(e,p.x,p.y,true);ctx.restore();text('☠ WORLD BOSS ☠',p.x,p.y-111,'#fff0af',17,'center');}else drawEnemy(e,p.x,p.y,true);
+  if(e.worldBoss){ctx.save();ctx.shadowColor='#e5417d';ctx.shadowBlur=24;ctx.translate(p.x,p.y);ctx.scale(1.55,1.55);ctx.translate(-p.x,-p.y);drawEnemy(e,p.x,p.y,true);ctx.restore();rect(100,307,280,33,'#281422e8');text('☠ WORLD BOSS ☠',240,327,'#fff0af',19,'center');}else drawEnemy(e,p.x,p.y,true);
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');}
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
