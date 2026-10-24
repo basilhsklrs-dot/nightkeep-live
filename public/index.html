@@ -646,11 +646,11 @@ function drawPortrait(){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else drawEnemy(e,p.x,p.y,true);
-  if(e.lastHitAt!=null&&t-e.lastHitAt<.6){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.6;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
+  if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){
-   const swing=e.lastAttackAt!=null&&t-e.lastAttackAt<.5;
-   if(swing){const k=(t-e.lastAttackAt)/.5;ctx.save();ctx.shadowColor='#ff496d';ctx.shadowBlur=26;ctx.strokeStyle='#ff5c7b';ctx.lineWidth=7;ctx.beginPath();ctx.arc(p.x+4,p.y-23,32,-2.2+k,1.1+k);ctx.stroke();ctx.strokeStyle='#ffe5ba';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p.x+12,p.y-40);ctx.lineTo(p.x+50,p.y-64+8*k);ctx.stroke();ctx.restore();text('⚔ HIT!',p.x,p.y-90,'#ff8f9c',14,'center');}
+   const attackAge=t-(e.lastAttackAt??-100);
+   if(attackAge>=0&&attackAge<.19){const k=attackAge/.19;ctx.save();ctx.globalAlpha=1-k;ctx.strokeStyle='#f19b9b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x+9,p.y-21,19,-1.8+k*1.6,-.4+k*1.6);ctx.stroke();ctx.restore();}
    text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');
   }
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
@@ -658,23 +658,15 @@ function drawPortrait(){
   if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
   if(e.weight>1)text('×'+e.weight,p.x,p.y+25,'#f2b0cc',11,'center');
  }
- // Bright, short-lived attack tracers make real Defender shots readable on TikTok.
- for(const shot of game.shots){
-  if(!shot.target||shot.target.hp<=0)continue;
-  const i=game.defenders.findIndex(d=>d.name===shot.owner);
-  const from=portraitDefender(i>=0?i+3:1),to=portraitEnemy(shot.target);
-  ctx.save();ctx.globalAlpha=.65+.2*Math.sin(t*20);ctx.strokeStyle='#73e7ff';ctx.lineWidth=2.5;ctx.shadowColor='#87eeff';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.moveTo(from.x,from.y-24);ctx.lineTo(to.x,to.y-25);ctx.stroke();ctx.restore();
- }
  for(let i=0;i<game.defenders.length+3;i++){
   const p=portraitDefender(i),d=i<3?null:game.defenders[i-3],lv=d?.level||1,tier=heroTier(lv),elite=!!d?.member,top=d&&topHeroIds('defense').includes(d.name);
   const palettes=[['#667d8b','#a5c0cf'],['#648b9e','#97c8da'],['#5375b1','#a8d8fb'],['#c5a25d','#ffe4a1'],['#e6c069','#fff3c4']];
   const [armor,light]=palettes[tier];
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
-  const attacking=d&&d.lastAttackAt!=null&&t-d.lastAttackAt<.28; if(attacking){ctx.save();ctx.shadowColor='#80f7ff';ctx.shadowBlur=24;ctx.strokeStyle='#a2fbff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(p.x+12,p.y-19,20,-1.7,.65);ctx.stroke();ctx.restore();}
+  const attackAge=t-(d?.lastAttackAt??-100);const attacking=attackAge>=0&&attackAge<.16;if(attacking){ctx.save();ctx.globalAlpha=1-attackAge/.16;ctx.strokeStyle='#a0d7e4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+10,p.y-19,13,-1.4,.3);ctx.stroke();ctx.restore();}
   sprite(knight,p.x-11,p.y-25,3.45,{h:tier>=3?'#b49156':'#8f9fae',H:light,s:'#b99d88',S:'#efd4b5',a:armor,A:light,b:tier>=2?'#293a57':'#393b50',x:elite?'#ffb0dd':'#d5d5ce'});
   if(d){
-   if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.85){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.85;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
+   if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.4){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.4;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
    if(tier>=1)rect(p.x-9,p.y-27,18,3,light);
    if(tier>=2){rect(p.x-14,p.y-19,5,9,armor);rect(p.x+10,p.y-19,5,9,armor);}
    if(tier>=3){rect(p.x-15,p.y-5,4,16,'#f6c56c');rect(p.x+12,p.y-26,3,24,'#f6c56c');}
