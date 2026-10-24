@@ -558,7 +558,7 @@ const LIKE_TARGETS=[100,500,1000];
 function engagementTick(){
  game.engagement ||= {likes:0,milestone:0,bossAt:180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
  const z=game.engagement;
- z.bossAt ??= Math.max(180,Math.floor(game.time/180+1)*180);z.likes ||= 0;z.milestone ||= 0;
+ z.bossAt ??= game.time+180; if(!Number.isFinite(z.bossAt)||z.bossAt>game.time+180)z.bossAt=game.time+180;z.likes ||= 0;z.milestone ||= 0;
  if(game.time>=z.bossAt){
  z.bossAt+=180;
  // Reserve room for the world boss instead of silently failing at the enemy cap.
