@@ -6,7 +6,7 @@ const streamer=(process.env.TIKTOK_USERNAME||'spao.mpales_').replace(/^@/,'');
 const demo=process.env.DEMO_MODE==='true';
 const server=http.createServer(async(req,res)=>{
  if(req.url==='/healthz'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,streamer,mode:demo?'demo':'real',status}));return;}
- if(req.url==='/'||req.url==='/index.html'){try{let h=await readFile(new URL('./public/index.html',import.meta.url));res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(h);}catch{res.writeHead(500);res.end('Frontend missing')}return;}
+ if(req.method==='GET' && !new URL(req.url,'http://localhost').pathname.startsWith('/api/') && !new URL(req.url,'http://localhost').pathname.startsWith('/healthz')){try{let h=await readFile(new URL('./public/index.html',import.meta.url));res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(h);}catch{res.writeHead(500);res.end('Frontend missing')}return;}
  res.writeHead(404);res.end('Not found');
 });
 let status=demo?'demo':'connecting',room='',connection=null,attempt=0;
