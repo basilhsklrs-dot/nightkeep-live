@@ -25,7 +25,8 @@ export function giftInfo(d, overrides = {}) {
   const action=(typeof override==='string'?override:override?.action)||giftActions[key]||null;
   const wanted=(typeof override==='object'?override?.skin:null)||giftSkins[key];
   const skin=skinActions[wanted]===action?wanted:defaultSkins[action]||null;
-  return { giftId: id, giftName: name, action,skin };
+  const coins=Number(d.gift?.diamondCount ?? d.extendedGiftInfo?.diamondCount ?? d.gift?.diamond_count ?? d.diamondCount ?? 0);
+  return { giftId: id, giftName: name, action:action||'value',skin,coins:Number.isFinite(coins)&&coins>0?Math.min(100000,coins):0 };
 }
 export class Normalizer {
   constructor(overrides = {}, now = () => Date.now()) { this.ids = new Map(); this.streaks = new Map(); this.overrides = overrides; this.now = now; }
@@ -45,12 +46,13 @@ export class Normalizer {
     }
     const user = username(d);
     const displayName = clean(d.user?.nickname || d.user?.displayName || d.nickname || user, 64) || user;
+    if (type === 'chat'){const command=clean(d.comment||d.text||'',64).trim().toLowerCase();if(/^(defender|defend|sieger|siege|attacker|attack|team defender|team sieger)$/.test(command))return {type:'team',user,displayName,team:/sieg|attack/.test(command)?'sieger':'defender'};return null;}
     if (type === 'join') return {type:'join',user,displayName};
     if (type === 'like') return { type: 'like', user, displayName, count: positive(d.count ?? d.likeCount) };
     if (type === 'follow') return { type: 'follow', user, displayName, count: 1 };
     if (type !== 'gift') return null;
     const info = giftInfo(d, this.overrides);
-    if (!info.action) { console.info(JSON.stringify({ ignoredGift: info.giftId, name: info.giftName })); return null; }
+
     const count = positive(d.repeatCount);
     const streak = Number(d.gift?.type ?? d.giftType ?? d.extendedGiftInfo?.type) === 1;
     if (streak) {
@@ -190,7 +192,7 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.ERROR, () => { if (valid()) console.warn('TikTok connection error; monitoring/retrying.'); });
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
-      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['ROOM_USER','join']]) {
+      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['ROOM_USER','join'],['CHAT','chat']]) {
         current.on(WebcastEvent[key], d => { if (valid()) emit(normalizer.normalize(type, d, room)); });
       }
       let deadline;
