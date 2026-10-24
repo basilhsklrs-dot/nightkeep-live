@@ -487,6 +487,17 @@ function drawLandscape(){
 // simulation, damage, timing and TikTok events are shared with the landscape view.
 function portraitEnemy(e){return{x:e.kind==='dragon'?240+(e.y-310)*2:122+(e.y-346)*4.5,y:580-(e.x-164)*.72};}
 function portraitDefender(i){if(i<3)return{x:180+i*60,y:590};const j=i-3;return{x:82+(j%9)*36,y:565-Math.floor(j/9)*28};}
+function drawLiveLeaderboards(){
+ const players=game.players||[];
+ const defenders=players.map(p=>({name:p.user,score:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+ const siegers=players.map(p=>({name:p.user,score:(p.hostile||0)*20})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+ const panels=[{x:9,title:'TOP 3 DEFENDERS',items:defenders,color:'#a8eac9'},{x:247,title:'TOP 3 SIEGERS',items:siegers,color:'#ffb6cb'}];
+ for(const panel of panels){
+  rect(panel.x,360,224,98,'#11182de8');rect(panel.x,360,224,3,panel.color);
+  text(panel.title,panel.x+112,377,panel.color,12,'center');
+  for(let i=0;i<3;i++){const p=panel.items[i];text(p?String(i+1)+'. @'+String(p.name).slice(0,13):String(i+1)+'. ---',panel.x+7,397+i*19,'#f1edf4',10);if(p)text(String(p.score),panel.x+213,397+i*19,panel.color,10,'right');}
+ }
+}
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
  rect(0,0,480,854,theme.sky);rect(0,135,480,180,theme.haze);rect(0,315,480,425,theme.ground);
@@ -545,6 +556,7 @@ function drawPortrait(){
  rect(14,302,452,48,'#12172ded');rect(14,302,452,3,'#f5cc73');
  text('⚔ FOLLOW = JOIN THE BATTLE AS YOUR HERO!',240,320,'#fff1bd',15,'center');
  text('💗 MEMBER HEART = ELITE POWER + EXTRA XP!',240,340,'#ffb8db',13,'center');
+ drawLiveLeaderboards();
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
  if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
