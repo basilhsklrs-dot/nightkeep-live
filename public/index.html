@@ -707,10 +707,13 @@ function smallImpact(x,y,color,age){if(age<0||age>.22)return;ctx.save();ctx.glob
 const SHOWCASE_ID='nightkeep.visual-showcase.20261024';
 const SHOWCASE_LENGTH=2*60*1000;
 let showcaseEnd=Number(store.get(SHOWCASE_ID)||0);
-if(!showcaseEnd){showcaseEnd=Date.now()+SHOWCASE_LENGTH;store.set(SHOWCASE_ID,String(showcaseEnd));}
-// Shorten an already-running fifteen-minute showcase without restarting it.
-const originalStart=showcaseEnd-15*60*1000;
-if(showcaseEnd-originalStart===15*60*1000){const shorterEnd=originalStart+SHOWCASE_LENGTH;if(showcaseEnd>shorterEnd){showcaseEnd=shorterEnd;store.set(SHOWCASE_ID,String(showcaseEnd));}}
+const SHOWCASE_SHORTENED_KEY=SHOWCASE_ID+'.shortened2m';
+if(!showcaseEnd){showcaseEnd=Date.now()+SHOWCASE_LENGTH;store.set(SHOWCASE_ID,String(showcaseEnd));store.set(SHOWCASE_SHORTENED_KEY,'1');}
+else if(store.get(SHOWCASE_SHORTENED_KEY)!=='1'){
+ showcaseEnd=showcaseEnd-(15-2)*60*1000;
+ store.set(SHOWCASE_ID,String(showcaseEnd));
+ store.set(SHOWCASE_SHORTENED_KEY,'1');
+}
 const SHOWCASE_LEVELS=[1,5,10,20,30];
 const SHOWCASE_GIFTS=[
  ['rose','ROSE','XP + HERO POWER / HEAL'],
