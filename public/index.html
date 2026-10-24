@@ -140,7 +140,7 @@ function safeReload(reason){
 }
 function pop(x,y,color,n=12){for(let i=0;i<n&&game.particles.length<180;i++)game.particles.push({x,y,vx:rnd(-40,40),vy:rnd(-70,10),life:rnd(.3,.9),color});}
 // Persistent per-viewer hero roster; active defenders have a renewable combat lease.
-const HERO_BASE_MS=120000,HERO_MAX_MS=900000;
+const HERO_BASE_MS=300000,HERO_MAX_MS=1800000;
 function heroRecord(name){const id=String(name||'viewer').slice(0,64);game.heroes ||= {};return game.heroes[id] ||= {name:id,xp:0,level:1,kills:0,member:false,activeUntil:0};}
 function addDefender(name,lease=HERO_BASE_MS){
  const id=String(name||'viewer').slice(0,64),h=heroRecord(id),now=Date.now();
@@ -155,7 +155,7 @@ function grantXp(user,amount,member=false){
  const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0);
  h.xp+=gain;if(member)h.member=true;const old=h.level||1;
  h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
- const d=addDefender(id,member?120000:Math.min(120000,Math.max(7000,gain*700)));
+ const d=addDefender(id,member?120000:Math.min(240000,Math.max(90000,gain*1500)));
  d.xp=h.xp;d.level=h.level;d.member=h.member;
  if(h.level>old){beep('level');eventBanner={user:id,title:`⚔ LEVEL ${h.level}${h.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(id,`LEVEL ${h.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}
 }
@@ -310,7 +310,7 @@ function resetRound(){
  feed('NIGHTKEEP','Το κάστρο αναγεννήθηκε. Η άμυνα συνεχίζεται.');save();
 }
 function update(dt){
- if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>(d.activeUntil||now+HERO_BASE_MS)>now);}
+ if(game.defenders.length){const now=Date.now();game.defenders=game.defenders.filter(d=>{if(!Number.isFinite(d.activeUntil)||d.activeUntil<=0){d.activeUntil=now+HERO_BASE_MS;const h=heroRecord(d.name);h.activeUntil=d.activeUntil;}return d.activeUntil>now;});}
  if(game.hp<=0||game.deadUntil){
   if(!game.deadUntil){game.deadUntil=Date.now()+5000;pop(95,315,'#ffae69',60);beep('fall');save();}
   if(Date.now()>=game.deadUntil)resetRound();return;
@@ -576,12 +576,12 @@ $('orientation').onclick=()=>{portrait=!portrait;canvas.height=portrait?854:450;
 $('quickFullscreen').onclick=async()=>{try{if(document.fullscreenElement){await document.exitFullscreen();}else{await document.documentElement.requestFullscreen();try{await screen.orientation?.lock?.('portrait')}catch{}} }catch{notice('Ο browser δεν επιτρέπει πλήρη οθόνη. Άνοιξε τη σελίδα απευθείας στον Chrome.')}};
 document.addEventListener('fullscreenchange',()=>{$('quickFullscreen').textContent=document.fullscreenElement?'⛶ Έξοδος':'⛶ Πλήρης οθόνη'});
 $('fullscreen').onclick=async()=>{try{await document.documentElement.requestFullscreen();$('config').close();await requestWake()}catch{notice('Η πλήρης οθόνη δεν υποστηρίζεται σε αυτόν τον browser.')}};
-$('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.48'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
+$('quickSound').onclick=async()=>{try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow');setTimeout(()=>{$('quickSound').style.opacity='.85'},2500)}catch{ $('quickSound').textContent='🔇 Δοκίμασε ξανά';}};
 $('audio').onclick=async()=>{try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();soundOn=!soundOn;$('audio').textContent=soundOn?'Ήχος ON':'Ήχος OFF';store.set('nightkeep.sound',soundOn?'1':'0');if(soundOn)beep('follow');await requestWake()}catch{notice('Δεν είναι διαθέσιμος ήχος στον browser.')}};
-window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
+window.addEventListener('pointerdown',()=>{requestWake();if(!soundOn||audioContext?.state!=='running'){try{audioContext ||=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(()=>{soundOn=true;store.set('nightkeep.sound','1');$('audio').textContent='Ήχος ON';$('quickSound').textContent='🔊 Ήχος ON';beep('follow')}).catch(()=>{})}catch{}}},{once:true});
 let musicStep=0;setInterval(()=>{if(!soundOn||!audioContext||audioContext.state!=='running'||document.hidden)return;const a=audioContext,note=[164.81,196,220,146.83,174.61,196,130.81,146.83][musicStep++%8],now=a.currentTime;const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.value=note;gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.042,now+.05);gain.gain.exponentialRampToValueAtTime(.0001,now+.55);osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.58)},650);
 window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.close();connect()}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
 restore();storageOk=store.set('nightkeep.storage-test','ok');requestWake();diagnostics();
 if(demo){
