@@ -141,8 +141,9 @@ function addDefender(name){
  const id=String(name).slice(0,64);if(game.followIds.includes(id))return;
  game.followIds.push(id);if(game.followIds.length>2000)game.followIds.shift();
  if(game.defenders.length>=MAX_DEFENDERS)game.defenders.shift();
- game.defenders.push({name:id,kills:0,seed:Math.random(),cooldown:rnd(0,1)});pop(155,320,'#9ee3bd',20);
+ game.defenders.push({name:id,kills:0,xp:0,level:1,member:false,seed:Math.random(),cooldown:rnd(0,1)});pop(155,320,'#9ee3bd',20);
 }
+function grantXp(user,amount,member=false){const d=game.defenders.find(v=>v.name===String(user||'').slice(0,64));if(!d)return;d.xp=(d.xp||0)+Math.max(0,amount);if(member)d.member=true;const old=d.level||1;d.level=Math.min(50,1+Math.floor(Math.sqrt(d.xp/20)));if(d.level>old){eventBanner={user:d.name,title:`⚔ LEVEL ${d.level}${d.member?' · MEMBER ❤️':''}`,until:Date.now()+4200,color:'#f5cc73'};feed(d.name,`LEVEL ${d.level} — Ισχυρότερος υπερασπιστής`,'#f5cc73');}}
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
  let p=game.players.find(p=>p.user===user);
@@ -195,9 +196,12 @@ function empowerBosses(id,bonus){
 }
 function applyEvent(e){
  const count=clamp(Number(e.count)||1,1,100000);
- if(e.type==='like'){game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
+ if(e.type==='like'){game.boost=Math.min(400,game.boost+count*.6);player(e.user).likes+=count;grantXp(e.user,count*.3);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){eventBanner={user:e.user,title:'ΝΕΟΣ ΥΠΕΡΑΣΠΙΣΤΗΣ',until:Date.now()+5500,color:'#8fe2ad'};addDefender(e.user);feed(e.user,'πήρε θέση στην άμυνα.','#8fe2ad');beep('follow');return;}
+ if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ ΚΑΡΔΙΑ ΜΕΛΟΥΣ — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
+ if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
+ grantXp(e.user,count*10);
  const progress=giftProgress(e);if(!progress)return;
  const {id,previous,total,bonus,priorBonus}=progress,c=progress.count,skin=giftSkin(e);
  const comboLabel=`COMBO ×${total} · BONUS +${bonus}%`;
@@ -307,7 +311,7 @@ function update(dt){
  game.attack-=dt*speed;if(game.attack<=0){shoot(115,252,32,'#f5d98c');game.attack=1;}
  for(let i=0;i<game.defenders.length+3;i++){
   const d=i<3?baseDefenders[i]:game.defenders[i-3];d.cooldown-=dt*speed;
-  if(d.cooldown<=0){const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(.5,Math.floor((d.kills||0)/5)*.05)),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=1.8+rnd(0,.4);}
+  if(d.cooldown<=0){const pos=defenderPos(i);shoot(pos.x,pos.y-12,i<3?12:16*(1+Math.min(3,(d.level||1)*.14+(d.kills||0)*.03))*(d.member?1.5:1),'#9ccde0',i<3?'Φρουρά':d.name);d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(.8,((d.level||1)-1)*.035)+(d.member?.25:0));}
  }
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
