@@ -658,6 +658,14 @@ function drawPortrait(){
   if(e.user&&['mini','dragon'].includes(e.kind))text(displayHeroName(e.user).slice(0,18)+((e.hpBonus||0)>0?' · +'+e.hpBonus+'% HP':''),p.x,p.y-(e.kind==='dragon'?96:61),'#f6c6db',11,'center');
   if(e.weight>1)text('×'+e.weight,p.x,p.y+25,'#f2b0cc',11,'center');
  }
+ // Bright, short-lived attack tracers make real Defender shots readable on TikTok.
+ for(const shot of game.shots){
+  if(!shot.target||shot.target.hp<=0)continue;
+  const i=game.defenders.findIndex(d=>d.name===shot.owner);
+  const from=portraitDefender(i>=0?i+3:1),to=portraitEnemy(shot.target);
+  ctx.save();ctx.globalAlpha=.65+.2*Math.sin(t*20);ctx.strokeStyle='#73e7ff';ctx.lineWidth=2.5;ctx.shadowColor='#87eeff';ctx.shadowBlur=8;
+  ctx.beginPath();ctx.moveTo(from.x,from.y-24);ctx.lineTo(to.x,to.y-25);ctx.stroke();ctx.restore();
+ }
  for(let i=0;i<game.defenders.length+3;i++){
   const p=portraitDefender(i),d=i<3?null:game.defenders[i-3],lv=d?.level||1,tier=heroTier(lv),elite=!!d?.member,top=d&&topHeroIds('defense').includes(d.name);
   const palettes=[['#667d8b','#a5c0cf'],['#648b9e','#97c8da'],['#5375b1','#a8d8fb'],['#c5a25d','#ffe4a1'],['#e6c069','#fff3c4']];
