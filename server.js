@@ -35,12 +35,12 @@ async function connect(){
  status='connecting';send({type:'status',status,streamer});
  try{
   if(connection)try{await connection.disconnect()}catch{}
-  connection=new TikTokLiveConnection(streamer,{enableExtendedGiftInfo:true});
+  connection=new TikTokLiveConnection(streamer,{enableExtendedGiftInfo:false});
   connection.on(WebcastEvent.LIKE,d=>evt('like',d));
   connection.on(WebcastEvent.FOLLOW,d=>evt('follow',d));
   connection.on(WebcastEvent.GIFT,d=>evt('gift',d));
   connection.on('disconnected',()=>{status='disconnected';send({type:'status',status});retry()});
-  connection.on('error',e=>console.warn('TikTok error',String(e?.message||e).slice(0,200)));
+  connection.on('error',e=>console.warn('TikTok error',String(e?.message||JSON.stringify(e)).slice(0,300)));
   const result=await connection.connect();
   room=String(result?.roomId||'');status='live';lastError='';attempt=0;send({type:'status',status,streamer,room});
  }catch(err){status='offline';lastError=String(err?.message||err).slice(0,300);console.warn('TikTok not connected',lastError);send({type:'status',status,error:lastError});retry();}
