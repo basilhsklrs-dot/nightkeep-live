@@ -238,7 +238,31 @@ function applyEvent(e){
  const coins=coinsPerGift*Math.max(0,(giftLedger.total*(100+giftLedger.bonus)-giftLedger.previous*(100+giftLedger.priorBonus))/100);
  grantXp(e.user,Math.max(10,coins*4));const hero=heroRecord(e.user);hero.powerBonus=Math.min(350,(hero.powerBonus||0)+Math.max(1,coins*.7));
  if(assigned==='sieger')summonSieger(e.user,coins);else {const own=game.defenders.find(d=>d.name===e.user);if(own){own.powerBonus=hero.powerBonus;own.maxHp=100+Math.min(650,(own.level-1)*16)+Math.min(350,hero.powerBonus);own.hp=Math.min(own.maxHp,own.hp+Math.max(12,coins*12));}}
- if(coins>0){game.engagement||={};const tier=coins>=100?5:coins>=50?4:coins>=20?3:coins>=10?2:coins>=5?1:0;if(assigned==='sieger'){const boss=(game.enemies||[]).find(v=>v.worldBoss&&v.hp>0);if(boss){const extra=Math.min(35000,coins*(30+tier*7));boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);eventBanner={user:displayHeroName(e.user),title:'⚔ BOSS EMPOWERED +'+coins+' COINS',until:Date.now()+5000,color:'#ff93b0'};}else {enqueue(tier>=3?'mini':'fast',Math.min(tier>=3?8:30,Math.max(1,Math.ceil(coins/(tier>=3?35:3)))),e.user,tier>=3?'armored':'goblin');if(tier>=5&&game.enemies.length<MAX_ENEMIES)spawn('dragon',.8,e.user,'fire');}game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;}else{game.hp=Math.min(1000,game.hp+Math.min(800,coins*(12+tier*3)));game.shield=Math.min(60,(game.shield||0)+Math.min(25,coins*(.4+tier*.1)));game.boost=Math.min(400,game.boost+Math.min(140,coins*(2+tier*.4)));for(const d of game.defenders)if(d.maxHp)d.hp=Math.min(d.maxHp,d.hp+Math.min(75,coins*(4+tier)));game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;}player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;eventBanner={user:displayHeroName(e.user),title:(assigned==='sieger'?'⚔ SIEGER':'🛡 DEFENDER')+' · '+(e.giftName||'GIFT')+' ×'+giftLedger.total+' · '+Math.round(coins)+' COINS · HERO +'+Math.round(hero.powerBonus),until:Date.now()+5200,color:assigned==='sieger'?'#ffb2c1':'#a3f3cf'};feed(displayHeroName(e.user),(assigned==='sieger'?'ATTACK':'HEAL')+' '+e.giftName+' ×'+giftLedger.total+' · '+coinsPerGift+' coins each','#e4d5a5');beep(assigned==='sieger'?'dragon':'heal');return;}
+ if(coins>0){
+  game.engagement||={};
+  const tier=coins>=100?5:coins>=50?4:coins>=20?3:coins>=10?2:coins>=5?1:0;
+  const h=heroRecord(e.user);
+  if(assigned==='sieger'){
+    const own=game.enemies.find(v=>v.siegerHero&&v.user===e.user&&v.hp>0);
+    if(own){const extra=Math.max(10,Math.round(coins*(10+tier*3)));own.maxHp+=extra;own.hp=Math.min(own.maxHp,own.hp+extra);own.damage=30+(h.level||1)*9+Math.min(250,h.powerBonus||0);own.powerBonus=h.powerBonus||0;own.giftGlowUntil=game.time+7;}
+    const boss=game.enemies.find(v=>v.worldBoss&&v.hp>0);
+    if(boss){const extra=Math.min(35000,coins*(30+tier*7));boss.hp+=extra;boss.maxHp+=extra;boss.hpBonus=(boss.hpBonus||0)+Math.min(40,coins*.2);}
+    else enqueue(tier>=3?'mini':'fast',Math.min(tier>=3?8:30,Math.max(1,Math.ceil(coins/(tier>=3?35:3)))),e.user,tier>=3?'armored':'goblin');
+    if(tier>=5&&game.enemies.length<MAX_ENEMIES)spawn('dragon',.8,e.user,'fire');
+    game.engagement.siegeScore=(game.engagement.siegeScore||0)+coins;
+  }else{
+    const own=game.defenders.find(d=>d.name===e.user);
+    if(own){own.hp=Math.min(own.maxHp,own.hp+Math.max(15,coins*(15+tier*4)));own.giftGlowUntil=game.time+7;}
+    game.hp=Math.min(1000,game.hp+Math.min(800,coins*(5+tier*2)));
+    game.shield=Math.min(60,(game.shield||0)+Math.min(18,coins*.2));
+    game.boost=Math.min(400,game.boost+Math.min(100,coins*(1+tier*.3)));
+    game.engagement.defenseScore=(game.engagement.defenseScore||0)+coins;
+  }
+  player(e.user)[assigned==='sieger'?'hostile':'support']+=coins;
+  eventBanner={user:displayHeroName(e.user),title:(assigned==='sieger'?'⚔ SIEGER POWER UP':'🛡 DEFENDER POWER UP')+' · '+(e.giftName||'GIFT')+' ×'+giftLedger.total+' · '+Math.round(coins)+' COINS',until:Date.now()+6000,color:assigned==='sieger'?'#ffb2c1':'#a3f3cf'};
+  feed(displayHeroName(e.user),'HERO +'+Math.round(hero.powerBonus)+' POWER · LEVEL '+h.level+' · '+coinsPerGift+' COINS/GIFT','#e4d5a5');
+  beep(assigned==='sieger'?'dragon':'heal');return;
+ }
  const progress=giftLedger;
  const {id,previous,total,bonus,priorBonus}=progress,c=progress.count,skin=giftSkin(e);
  const comboLabel=`COMBO ×${total} · BONUS +${bonus}%`;
