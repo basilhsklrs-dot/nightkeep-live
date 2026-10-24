@@ -5,7 +5,7 @@ const rng=(a,b)=>a+Math.random()*(b-a);
 let autoWaveTime=0, attacks=0;
 function size(){const d=Math.min(devicePixelRatio||1,2);c.width=innerWidth*d;c.height=innerHeight*d;x.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',size);size();document.getElementById('full').onclick=()=>document.documentElement.requestFullscreen?.();
-function spawn(type='goblin',count=1){for(let i=0;i<Math.min(150,count);i++)units.push({x:rng(10,innerWidth-10),y:innerHeight+rng(20,100)+i*8,h:type==='dragon'?110: type==='mini'?26:5,s:type==='dragon'?38:type==='mini'?19:11,type})}
+function spawn(type='goblin',count=1){for(let i=0;i<Math.min(150,count);i++)units.push({x:rng(10,innerWidth-10),y:innerHeight*.92+rng(0,65)+i*12,h:type==='dragon'?110: type==='mini'?26:5,s:type==='dragon'?38:type==='mini'?19:11,type})}
 function event(e){if(e.type==='status'){live=e.status;user='@'+(e.streamer||'aisxr0s');s.textContent=user+' · '+live;return}if(e.type==='like'){shield=Math.min(2000,shield+e.count);fx.push('❤️ '+e.user);return}if(e.type==='follow'){hp=Math.min(1000,hp+75);fx.push('⭐ '+e.user);return}if(e.type!=='gift')return;
 combo=e.comboTotal||1;let n=Math.max(1,e.count||1),boost=combo>=50?2.5:combo>=20?2:combo>=10?1.5:combo>=5?1.2:1;
 if(e.action==='heal')hp=Math.min(1000,hp+160*n*boost);
@@ -16,7 +16,7 @@ if(e.action==='dragon')spawn('dragon',n);
 fx.push((e.name||e.action)+' ×'+combo+' · '+e.user);if(fx.length>6)fx.shift()}
 function connection(){let ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws');ws.onmessage=m=>{try{event(JSON.parse(m.data))}catch{}};ws.onclose=()=>{s.textContent='Επανασύνδεση…';setTimeout(connection,3000)};ws.onerror=()=>ws.close()}connection();
 let time=0;function draw(t){let dt=Math.min(.04,(t-time)/1000||0);time=t;let w=innerWidth,h=innerHeight;
-if(t-autoWaveTime>4500){autoWaveTime=t;spawn('goblin',Math.min(3+round,15));}x.fillStyle='#070a20';x.fillRect(0,0,w,h);
+if(t-autoWaveTime>2800){autoWaveTime=t;spawn('goblin',Math.min(3+round,15));}x.fillStyle='#070a20';x.fillRect(0,0,w,h);
 let gameW=Math.min(w,h*9/16),left=(w-gameW)/2;
 x.save();x.beginPath();x.rect(left,0,gameW,h);x.clip();x.translate(left,0);
 let sx=gameW/540,sy=h/960;x.scale(sx,sy);
@@ -32,7 +32,7 @@ x.font='16px system-ui';x.fillStyle='#d1c4eb';x.fillText('STAGE '+round+'  ·  �
 x.fillStyle='#3a2f50';x.fillRect(50,147,440,14);x.fillStyle='#ff6b92';x.fillRect(50,147,440*hp/1000,14);
 x.fillStyle='#d4e0fd';x.fillText('🛡️ '+Math.round(shield)+'    ⚔️ '+units.length+'    COMBO ×'+combo,270,190);
 x.font='13px system-ui';x.fillStyle='#ffe5b6';x.fillText('🌹 Rose +160 HP   💗 Finger Heart +Shield',270,228);x.fillText('🍩 Doughnut / 🍦 Ice Cream → Enemies',270,251);x.fillText('🧢 Cap / 🕶️ Sunglasses → Mini-boss',270,274);x.fillText('🦁 Lion / 🌌 Universe → Dragon',270,297);x.fillText('Bonus combos: ×5, ×10, ×20, ×50',270,320);
-for(let i=units.length-1;i>=0;i--){let u=units[i];u.y-=dt*(12+round*2)*(960/h);if(Math.random()<dt*2.5){u.h-=1;attacks++;}if(u.h<=0){units.splice(i,1);kills++;continue}let yy=u.y*960/h;if(yy<585){let dmg=u.type==='dragon'?45:u.type==='mini'?12:4;let blocked=Math.min(shield,dmg);shield-=blocked;hp=Math.max(0,hp-dmg+blocked);units.splice(i,1);continue}let xx=(u.x-left)*540/gameW;x.font=(u.type==='dragon'?46:u.type==='mini'?30:24)+'px serif';x.fillText(u.type==='dragon'?'🐉':u.type==='mini'?'👹':'👾',Math.max(30,Math.min(510,xx)),yy)}
+for(let i=units.length-1;i>=0;i--){let u=units[i];u.y-=dt*(90+round*5)*(h/960);if(Math.random()<dt*4){u.h-=1;attacks++;}if(u.h<=0){units.splice(i,1);kills++;continue}let yy=u.y*960/h;if(yy<585){let dmg=u.type==='dragon'?45:u.type==='mini'?12:4;let blocked=Math.min(shield,dmg);shield-=blocked;hp=Math.max(0,hp-dmg+blocked);units.splice(i,1);continue}let xx=(u.x-left)*540/gameW;x.font=(u.type==='dragon'?46:u.type==='mini'?30:24)+'px serif';x.fillText(u.type==='dragon'?'🐉':u.type==='mini'?'👹':'👾',Math.max(30,Math.min(510,xx)),yy)}
 if(kills>=round*20){kills=0;round++}if(hp<=0){round=1;hp=1000;shield=0;units=[]}
 x.textAlign='left';x.font='bold 16px system-ui';x.fillStyle='#fff';fx.slice(-5).forEach((f,i)=>x.fillText(f.slice(0,42),25,825+i*26));
 x.textAlign='center';x.fillStyle='#c6abd6';x.font='13px system-ui';x.fillText('LIVE δώρα → ενέργειες σε πραγματικό χρόνο',270,946);
