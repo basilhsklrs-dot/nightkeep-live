@@ -180,7 +180,7 @@ export async function startServer(env = process.env) {
       const { TikTokLiveConnection, WebcastEvent, ControlEvent } = await import('tiktok-live-connector');
       if (ticket !== generation || stopping) return;
       connection = new TikTokLiveConnection(streamer, {
-        enableExtendedGiftInfo: true, processInitialData: false,
+        enableExtendedGiftInfo: false, processInitialData: false,
         ...(env.EULER_API_KEY ? { signApiKey: env.EULER_API_KEY } : {})
       });
       const current = connection;
