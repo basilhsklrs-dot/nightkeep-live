@@ -194,7 +194,7 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
       for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['ROOM_USER','join'],['CHAT','chat']]) {
-        current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.comment??d.text??d.message??'',64);if(/^[12]$/.test(raw.trim()))console.info(JSON.stringify({event:'team_chat_command',user:username(d),raw,normalized:event?.team||null}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));emit(event); });
+        current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));emit(event); });
       }
       let deadline;
       const pending = current.connect();
