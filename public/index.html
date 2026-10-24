@@ -319,7 +319,7 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  if(game.enemies.length>=MAX_ENEMIES)return false;
  const stats={normal:[60,17,16],fast:[90,36,23],mini:[900,9,95],dragon:[4200,7,260]};
  const [hp,speed,damage]=stats[kind];const power=1+hpBonus/100;const scale=(1+Math.min(5,(game.wave-1)*.08))*stageDifficulty();
- game.enemies.push({ranged:kind==='fast'&&Math.random()<.45,projectileCooldown:1.5,kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
+ game.enemies.push({ranged:kind==='fast',projectileCooldown:1.5,kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
  const old=game;game=fresh();Object.assign(game,{heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,jobs:old.jobs,boost:old.boost,shield:old.shield});
@@ -334,7 +334,7 @@ function update(dt){
  engagementTick();
  game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=1+Math.floor(game.time/35);game.best=Math.max(game.best,game.wave);
  game.boost=Math.max(0,game.boost-dt*(4+game.boost*.08));game.shield=Math.max(0,game.shield-dt);game.flash=Math.max(0,game.flash-dt);game.shake=Math.max(0,game.shake-dt*2);
- game.spawn-=dt;if(game.spawn<=0){spawn();game.spawn=Math.max(.6,3.2-game.wave*.13);}
+ game.spawn-=dt;if(game.spawn<=0){game.spawnNumber=(game.spawnNumber||0)+1;spawn(game.spawnNumber%5===0?'fast':'normal');game.spawn=Math.max(.6,3.2-game.wave*.13);}
  if(game.jobs.length&&game.enemies.length<MAX_ENEMIES){
   const job=game.jobs[0],weight=Math.max(1,Math.ceil(job.count/(job.kind==='fast'?30:5)));
   if(spawn(job.kind,weight,job.user||'Κοινότητα',job.skin||enemyDefaults[job.kind],job.comboId||'',job.hpBonus||0)){job.count-=weight;if(job.count<=0)game.jobs.shift();}
@@ -360,7 +360,7 @@ function update(dt){
   e.phase+=dt*5;
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>265){e.x-=e.speed*dt;continue;}
-  if(e.ranged){e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);beep('shoot');}continue;}
+  if(e.ranged){e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);beep('shoot');}continue;}
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
  }
@@ -568,7 +568,7 @@ function drawPortrait(){
   const p=portraitEnemy(e);if(p.y<286)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){ctx.save();ctx.shadowColor='#e5417d';ctx.shadowBlur=28;ctx.translate(p.x,p.y);ctx.scale(1.35,1.35);ctx.translate(-p.x,-p.y);drawEnemy(e,p.x,p.y,true);ctx.restore();text('☠ WORLD BOSS ☠',p.x,p.y-111,'#fff0af',17,'center');}else drawEnemy(e,p.x,p.y,true);
-  if(e.ranged){text('🏹',p.x,p.y-37,'#ffdd9c',13,'center');}
+  if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
   if(e.siegerHero){text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');}
   if(e.user){const h=game.heroes?.[e.user],lv=h?.level||1,top=(game.players||[]).slice().sort((a,b)=>(b.hostile||0)-(a.hostile||0)).slice(0,3).some(v=>v.user===e.user);drawHeroEquipment(p.x,p.y,lv,!!h?.member,'sieger',top);}
   if(e.kind==='mini'||e.kind==='dragon'||(game.enemies.length<16&&e.hp<e.maxHp)){const w=e.kind==='dragon'?96:35,yy=p.y-(e.kind==='dragon'?85:52);rect(p.x-w/2,yy,w,5,'#262235');rect(p.x-w/2,yy,w*e.hp/e.maxHp,4,'#d990a8');}
@@ -596,6 +596,7 @@ function drawPortrait(){
    }
   }
  }
+ for(const burst of game.rangedBursts||[]){const age=game.time-burst.at;if(age<.8){const victim=game.defenders.find(d=>d.name===burst.target);if(victim){const idx=game.defenders.indexOf(victim),dest=portraitDefender(idx+3),start={x:420,y:510};const u=Math.min(1,age/.7);rect(start.x+(dest.x-start.x)*u,start.y+(dest.y-start.y)*u,12,3,'#ffce78');}}}
  for(const shot of game.shots){
   const dest=portraitEnemy(shot.target),ox=shot.originX??115,oy=shot.originY??252;
   const i=Math.round((oy+12-328)/9)*6+Math.round((ox-145)/19);
