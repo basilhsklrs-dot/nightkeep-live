@@ -868,6 +868,20 @@ window.addEventListener('online',()=>{if(!demo&&socket?.readyState!==1){socket?.
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else{if(audioContext?.state==='suspended'){$('quickSound').textContent='🔊 Πάτησε για ήχο';$('quickSound').style.opacity='1'}last=performance.now();frameAt=last;accumulator=0;requestWake();if(soundOn&&audioContext?.state==='suspended')audioContext.resume().catch(()=>{});checkTransport()}});window.addEventListener('pagehide',save);
 try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τις ρυθμίσεις και βάλε τη διεύθυνση wss:// του backend.');}
 restore();
+// One-time roster wipe for this release, including persisted heroes and old labels.
+// New viewers start appearing only from events received after this client updates.
+const ROSTER_EPOCH='nightkeep-roster-reset-20261024-2354';
+if(store.get('nightkeep.rosterEpoch')!==ROSTER_EPOCH){
+ game.players=[];game.defenders=[];game.enemies=(game.enemies||[]).filter(e=>!e.user||e.user==='NIGHTKEEP');
+ game.heroes={};game.teams={};game.displayNames={};game.followIds=[];
+ game.jobs=[];game.combos=[];game.activity=[];game.lastActivityTitle='';
+ game.engagement={likes:0,milestone:0,bossAt:game.time+180,bossActive:false,bossWins:0,defenseScore:0,siegeScore:0};
+ game.boost=0;game.siegeBoost=0;game.featureAnnouncement=null;
+ eventBanner={user:'',title:'',until:0,color:'#f5cc73'};
+ comboBurst={until:0,user:'',total:0,bonus:0};
+ store.set('nightkeep.rosterEpoch',ROSTER_EPOCH);
+ save();
+}
 if(new URLSearchParams(location.search).get('spawnBoss')==='1'){
  game.engagement||={likes:0,milestone:0,bossAt:180,defenseScore:0,siegeScore:0};
  const old=game.enemies.find(e=>e.worldBoss&&e.hp>0);
