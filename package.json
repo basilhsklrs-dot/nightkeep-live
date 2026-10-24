@@ -1,15 +1,20 @@
 {
-  "name": "nightkeep-live",
-  "version": "1.0.0",
+  "name": "castle-live",
+  "version": "2.3.0",
+  "private": true,
   "type": "module",
+  "description": "TikTok LIVE retro pixel castle defense",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node --env-file-if-exists=.env server.js",
+    "demo": "node --env-file-if-exists=.env server.js --demo",
+    "test": "node --test",
+    "check": "node --check server.js"
   },
   "dependencies": {
     "tiktok-live-connector": "2.5.0",
-    "ws": "^8.18.0"
+    "ws": "8.22.0"
   }
 }
