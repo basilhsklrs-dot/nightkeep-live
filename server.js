@@ -242,8 +242,8 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.ERROR, () => { if (valid()) console.warn('TikTok connection error; monitoring/retrying.'); });
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
-      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['MEMBER','join'],['CHAT','chat']]) {
-        current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));if(event?.type==='join')console.info(JSON.stringify({event:'viewer_join_received',user:event.user,source:type}));emit(event); });
+      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['MEMBER','join'],['ROOM_USER','roomUser'],['CHAT','chat']]) {
+        current.on(WebcastEvent[key], d => { if (!valid()) return; if(type==='roomUser'&&!((d.user?.uniqueId||d.user?.displayId||d.uniqueId)&&d.user?.nickname))return; const event=normalizer.normalize(type==='roomUser'?'join':type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));if(event?.type==='join')console.info(JSON.stringify({event:'viewer_join_received',user:event.user,source:type}));emit(event); });
       }
       let deadline;
       const pending = current.connect();
