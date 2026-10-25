@@ -1386,10 +1386,56 @@ function visualUi(){
  ctx.restore();
 }
 
+
+// NIGHTKEEP LIVE engagement HUD — presentation-only; no duplicate gift or damage handlers.
+function drawEngagementHud(){
+ if(!portrait)return;
+ const likes=(game.players||[]).reduce((sum,p)=>sum+Math.max(0,Number(p.likes)||0),0);
+ const goal=1000,progress=likes%goal,remaining=goal-progress;
+ ctx.save();
+ const panel=ctx.createLinearGradient(35,83,445,150);panel.addColorStop(0,'#0d1428ed');panel.addColorStop(1,'#29213aed');
+ ctx.fillStyle=panel;ctx.fillRect(35,87,410,65);
+ ctx.strokeStyle='#b98c65aa';ctx.lineWidth=1;ctx.strokeRect(35.5,87.5,409,64);
+ text('❤ GLOBAL TAP POWER',48,106,'#ffb3c5',13);
+ text(progress+' / '+goal,429,106,'#f8e4c8',11,'right');
+ rect(48,116,382,10,'#30344a');
+ const fill=ctx.createLinearGradient(48,0,430,0);fill.addColorStop(0,'#d65d83');fill.addColorStop(1,'#ffc48b');
+ rect(48,116,382*progress/goal,10,fill);
+ text(remaining+' LIKES TO NEXT MILESTONE',239,143,'#f0d4ad',10,'center');
+ // Two balanced team prompts. Likes and gifts remain optional participation.
+ text('🛡 DEFENDERS',49,171,'#9dd9f5',11);
+ text('⚔ SIEGERS',431,171,'#f5a2b2',11,'right');
+ const boss=(game.engagement||{}),bossIn=Math.max(0,300-((game.time||0)%300));
+ if(bossIn<45&&!boss.bossActive){
+  const seconds=Math.ceil(bossIn);
+  ctx.fillStyle='#271325db';ctx.fillRect(120,191,240,27);
+  text('☠ BOSS IN '+seconds+'s',240,209,'#ffbf8e',13,'center');
+ }
+ const banner=Date.now()<eventBanner.until?eventBanner:null;
+ const feature=game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until?game.featureAnnouncement:null;
+ const combo=Date.now()<comboBurst.until?comboBurst:null;
+ if(combo&&combo.total>1){
+  ctx.fillStyle='#342037e9';ctx.fillRect(92,231,296,49);
+  text('✦ COMBO ×'+combo.total,240,250,'#ffd18b',16,'center');
+  text(displayHeroName(combo.user),240,268,'#f8d5e4',11,'center');
+ }else if(banner||feature){
+  const headline=banner?banner.title:feature.title;
+  const detail=banner?displayHeroName(banner.user):feature.detail;
+  ctx.fillStyle='#1a2037e9';ctx.fillRect(66,231,348,47);
+  text(String(headline||'').slice(0,30),240,249,banner?banner.color:'#f6d08a',13,'center');
+  text(String(detail||'').slice(0,38),240,266,'#e4ddec',10,'center');
+ }
+ // Prompt lives above the lower TikTok chat controls, never over the castle.
+ ctx.fillStyle='#12192ddc';ctx.fillRect(72,704,336,47);
+ text('TAP ❤  ·  FOLLOW = POWER',240,721,'#ffe0a5',12,'center');
+ text('GIFTS = MAGIC  ·  JOIN THE BATTLE',240,739,'#d2c6ec',10,'center');
+ ctx.restore();
+}
 function draw(){
  if(portrait){
   drawPortrait();
   visualAtmosphere();
+  drawEngagementHud();
   // High priority stage introduction is the only interruption to battle.
   if(Date.now()<stageBanner.until&&game.hp>0){
    const st=STAGES[stageBanner.index];
