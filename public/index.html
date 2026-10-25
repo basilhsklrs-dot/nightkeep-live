@@ -157,7 +157,7 @@ function summonSieger(user,coins=0){
  game.teams||={};game.teams[id]='sieger';h.team='sieger';
  const now=Date.now();h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+Math.max(120000,coins*2000),now+HERO_MAX_MS);
  let e=(game.enemies||[]).find(e=>e.siegerHero&&e.user===id&&e.hp>0);
- if(!e){if(game.enemies.length>=MAX_ENEMIES)return;const scale=1+Math.min(10,(h.level||1)*.25);if(!spawn('mini',.4*scale,id,'shadow'))return;e=game.enemies[game.enemies.length-1];e.siegerHero=true;e.kind='mini';e.speed=13;e.damage=30+Math.min(240,(h.level||1)*6);e.maxHp=Math.max(120,e.maxHp);e.hp=e.maxHp;feed(displayHeroName(id),'SIEGER ENTERS THE BATTLE!','#ff9ca9');}
+ if(!e){if(game.enemies.length>=MAX_ENEMIES)return;const scale=1+Math.min(10,(h.level||1)*.25);if(!spawn('mini',.4*scale,id,'shadow'))return;e=game.enemies[game.enemies.length-1];e.siegerHero=true;e.kind='mini';e.x=430;e.y=353;e.speed=13;e.damage=30+Math.min(240,(h.level||1)*6);e.maxHp=Math.max(120,e.maxHp);e.hp=e.maxHp;feed(displayHeroName(id),'SIEGER ENTERS THE BATTLE!','#ff9ca9');}
  else {e.hp=Math.min(e.maxHp,e.hp+Math.max(20,coins*15));}
  e.siegerLevel=h.level||1;e.siegerMember=!!h.member;e.powerBonus=h.powerBonus||0;e.damage=30+(h.level||1)*9+Math.min(250,h.powerBonus||0);e.speed=13+Math.min(15,(h.level||1)*.35);e.activeUntil=h.activeUntil;
 }
@@ -833,7 +833,7 @@ function drawPortrait(){
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
-  const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss)continue;
+  const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss&&!e.siegerHero)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {if(e.siegerHero)heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100),t-(e.lastHitAt??-100));else drawEnemy(e,p.x,p.y,true);}
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
@@ -898,6 +898,8 @@ function drawPortrait(){
  text('TYPE 1 = DEFENDER 🛡  ·  TYPE 2 = SIEGER ⚔',240,170,'#fff1bd',13,'center');
  text('❤️ TAP FREE · 🛡 ×'+(1+game.boost/100).toFixed(2)+'  ⚔ ×'+(1+(game.siegeBoost||0)/100).toFixed(2),240,189,'#ffcf78',15,'center');
  drawLiveLeaderboards();drawEngagementHud();
+ const onlineNow=Date.now(),activeD=(game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>onlineNow).length,activeS=(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>onlineNow).length;
+ text('🛡 ACTIVE '+activeD+'       ⚔ ACTIVE '+activeS,240,306,'#e6efc9',13,'center');
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
  if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
