@@ -143,6 +143,7 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
     simulatedRecently: demo || Date.now() - slot.lastSimAt < 60_000,
     host: slot.host?.diagnostics() ?? null, opponent: slot.opponent?.diagnostics() ?? null,
     pk: slot.session.pk, tracker: slot.tracker.state, counters: slot.session.counters,
+    samples: url?.searchParams.get('samples') === '1' ? [...(slot.host?.samples ?? []), ...(slot.opponent?.samples ?? [])] : undefined,
     device: slot.device.slice(-30), dumps: url?.searchParams.get('dumps') === '1' ? slot.dumps : slot.dumps.length, verifiedAccepts: slot.verifiedAccepts,
     clients: wss.clients.size, rules: { giftTiers: rules.giftTiers, combo: rules.combo, giftIdMapSize: Object.keys(rules.giftIdMap).length },
   });

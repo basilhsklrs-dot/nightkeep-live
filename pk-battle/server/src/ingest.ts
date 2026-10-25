@@ -33,6 +33,11 @@ export class RoomSource extends EventEmitter<RoomSourceEvents> {
   lastError = '';
   /** Per-type raw counts, to verify availability of each event type in diagnostics. */
   seen: Record<string, number> = {};
+  /** Every webcast message method received (decoded or not) and decode failures, to verify what TikTok really sends. */
+  methods: Record<string, number> = {};
+  decodeErrors: Record<string, number> = {};
+  /** A few raw payloads of PK/link-related messages (base64) for offline analysis. */
+  samples: { at: number; method: string; decoded: boolean; b64: string }[] = [];
   private connection: any;
   private generation = 0;
   private failures = 0;
@@ -91,7 +96,26 @@ export class RoomSource extends EventEmitter<RoomSourceEvents> {
       });
       this.connection = current;
       const valid = () => ticket === this.generation && !this.stopping;
-      current.on(ControlEvent.ERROR, () => { if (valid()) this.lastError = 'connection error'; });
+      current.on(ControlEvent.ERROR, (e: any) => {
+        if (!valid()) return;
+        this.lastError = clean(e?.info || e?.exception?.name || 'connection error', 120);
+        console.warn(JSON.stringify({ room: this.uniqueId, connector_error: this.lastError, detail: clean(e?.exception?.message || '', 160).replace(/https?:\S+/g, '[url]') }));
+      });
+      current.on(ControlEvent.WEBSOCKET_CONNECTED, (ws: any) => {
+        ws.on('protoMessageFetchResult', (r: any) => {
+          if (!valid()) return;
+          for (const m of r?.messages ?? []) {
+            const method = clean(m?.method || '?', 60);
+            if (!this.methods[method]) console.info(JSON.stringify({ room: this.uniqueId, new_message_type: method, decoded: !!m.decodedData, error: m.decodeError ? clean(m.decodeError?.message, 120) : undefined }));
+            this.methods[method] = (this.methods[method] ?? 0) + 1;
+            if (m.decodeError) this.decodeErrors[method] = (this.decodeErrors[method] ?? 0) + 1;
+            if (/battle|linkmic|link|armies|match|cohost|pk/i.test(method) && this.samples.filter(x => x.method === method).length < 3 && m.payload) {
+              this.samples.push({ at: Date.now(), method, decoded: !!m.decodedData, b64: Buffer.from(m.payload).toString('base64').slice(0, 8000) });
+              if (this.samples.length > 30) this.samples.shift();
+            }
+          }
+        });
+      });
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) this.retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void this.dispose(); this.retry(); } });
       for (const [key, kind] of RAW_EVENTS) {
@@ -137,6 +161,6 @@ export class RoomSource extends EventEmitter<RoomSourceEvents> {
   }
 
   diagnostics() {
-    return { uniqueId: this.uniqueId, side: this.side, state: this.state, roomId: this.roomId, lastEventAt: this.lastEventAt, nextRetryAt: this.nextRetryAt, lastError: this.lastError, seen: this.seen };
+    return { uniqueId: this.uniqueId, side: this.side, state: this.state, roomId: this.roomId, lastEventAt: this.lastEventAt, nextRetryAt: this.nextRetryAt, lastError: this.lastError, seen: this.seen, methods: this.methods, decodeErrors: this.decodeErrors, samples: this.samples.length };
   }
 }
