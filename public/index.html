@@ -708,12 +708,15 @@ function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
 function topHeroIds(side){return (game.players||[]).filter(p=>String(p.user||'').replace(/^@/,'').toLowerCase()!=='katitrexei').map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
 function drawLiveLeaderboards(){
  const def=topHeroIds('defense'),siege=topHeroIds('siege');
- for(const [x,label,ids,color] of [[10,'🛡 TOP DEFENDERS',def,'#a8eac9'],[246,'⚔ TOP SIEGERS',siege,'#ffb6cb']]){
-  rect(x,205,224,58,'#11182db8');rect(x,205,224,2,color);
-  text(label,x+112,218,color,11,'center');
-  for(let j=0;j<3;j++){const id=ids[j],p=(game.players||[]).find(q=>q.user===id),score=p?(x===10?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20):0;
-   text(id?String(j+1)+'. '+displayHeroName(id).slice(0,13):String(j+1)+'. —',x+5,232+j*10,'#f3f0ed',9);
-   if(id)text(String(score),x+216,232+j*10,color,9,'right');
+ for(const [x,label,ids,color] of [[10,'🛡 DEFENDERS',def,'#a8eac9'],[246,'⚔ SIEGERS',siege,'#ffb6cb']]){
+  rect(x,202,224,66,'#0b1226f5');rect(x,202,224,3,color);
+  text(label,x+112,217,color,14,'center');
+  for(let j=0;j<3;j++){
+   const id=ids[j],p=(game.players||[]).find(q=>q.user===id);
+   const score=p?(x===10?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20):0;
+   const y=232+j*12;
+   text(id?String(j+1)+'. '+displayHeroName(id).slice(0,12):String(j+1)+'. —',x+7,y,'#ffffff',12);
+   if(id)text(String(score),x+218,y,color,12,'right');
   }
  }
 }
