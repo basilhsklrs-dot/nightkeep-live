@@ -4,7 +4,9 @@
 (function(){
  const EVENT_MS=45000, COOLDOWN_MS=180000, ACTIVITY_MS=150000;
  const state=game.personalChampion ||= {until:0,nextAt:Date.now()+90000,history:[]};
+ if(state.user){state.user=null;state.team=null;state.until=0;state.nextAt=Date.now()+30000;} // Restore safe after refresh, never retain a stuck boss
  const seen=new Map();
+ // An existing connected viewer counts as eligible only after live activity is received.
  function userOf(u){return u?.name||u?.user||''}
  function sideOf(u){return u?.siegerHero?'sieger':'defender'}
  function findFighter(id,team){
@@ -25,7 +27,11 @@
   if(game.heroes?.[state.user]){
    game.heroes[state.user].championWins=(game.heroes[state.user].championWins||0)+(reason==='survived'?1:0);
   }
-  if(reason==='survived')grantXp(state.user,45);
+  if(reason==='survived'){
+   const h=heroRecord(state.user);h.xp=(h.xp||0)+45;h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
+   if(state.team==='defender'){const d=findFighter(state.user,'defender');if(d){d.xp=h.xp;d.level=h.level;}}
+   const p=player(state.user);p.championVictories=(p.championVictories||0)+1;
+  }
   feed(displayHeroName(state.user),'CHAMPION '+reason.toUpperCase(),state.team==='sieger'?'#ff9aa9':'#a0dbff');
   state.history ||= [];
   state.history.push({user:state.user,team:state.team,at:Date.now(),result:reason});
