@@ -84,7 +84,7 @@ export async function startServer(env = process.env) {
   const streamer = clean(env.TIKTOK_USERNAME || 'nightkeep.live').replace(/^@/, '');
   if (!demo && !/^[\w.]{2,64}$/.test(streamer)) throw Error('Set TIKTOK_USERNAME in .env (without @), or run npm run demo.');
   // Outbound messages are disabled unless the creator explicitly configures an authenticated session.
-  const chatEnabled = env.TIKTOK_CHAT_ENABLED === 'true';
+  const chatEnabled = false; // Legacy NIGHTKEEP outbound chat disabled until Bumper-specific messages are approved.
   const chatSessionId = String(env.TIKTOK_SESSION_ID || '');
   const chatTargetIdc = String(env.TIKTOK_TARGET_IDC || '');
   const chatReady = chatEnabled && Boolean(env.EULER_API_KEY && chatSessionId && chatTargetIdc);
