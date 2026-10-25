@@ -1,0 +1,24 @@
+{
+  "name": "nightkeep-pk-battle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Two-creator TikTok LIVE PK battle game server (server-authoritative)",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "demo": "DEMO_MODE=true node --env-file-if-exists=.env dist/server.js",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "@types/ws": "8.18.1",
+    "typescript": "5.8.3"
+  }
+}
