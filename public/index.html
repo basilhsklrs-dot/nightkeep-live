@@ -434,7 +434,7 @@ function update(dt){
   const foes=game.enemies.filter(e=>e.hp>0&&!e.worldBoss&&!e.ranged);
   let enemy=foes.find(e=>e===m.target&&e.hp>0);
   if(!enemy){enemy=foes.length?foes.reduce((best,e)=>Math.abs(e.x-m.x)+Math.abs(e.y-m.y)*.8<Math.abs(best.x-m.x)+Math.abs(best.y-m.y)*.8?e:best,foes[0]):game.enemies.find(e=>e.hp>0&&!e.worldBoss);m.target=enemy||null;}
-  if(!enemy){if(!m.ranged)m.x=Math.min(245,m.x+22*dt);continue;}
+  if(!enemy){m.target=null;m.x+=(151-m.x)*Math.min(1,dt*1.5);m.y+=(350+(j%4)*6-m.y)*Math.min(1,dt*1.5);continue;}
   const laneDelta=enemy.y-m.y, dx=enemy.x-m.x,reach=m.ranged?145:22;
   if(!m.ranged){
    const slot=(j%4-1.5)*7;const desiredX=enemy.x-reach-slot*.18;
@@ -1030,7 +1030,15 @@ function drawPortrait(){
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  // Draw the real autonomous garrison: melee advance, archers remain behind.
  for(const m of game.militia||[]){
-  const px=208+(m.x-145)*.78+(m.y-350)*1.4,py=621-(m.x-145)*.82+(m.y-350)*.12;
+  // Interpolate from castle gate to the SAME projection used by enemy sprites.
+  // This prevents soldiers visually drifting to the top-right while fighting elsewhere.
+  const foe=m.target&&m.target.hp>0?m.target:null;
+  const end=foe?portraitEnemy(foe):{x:240,y:470};
+  const initial=151,remaining=foe?Math.max(1,foe.x-initial):100;
+  const progress=m.ranged?Math.max(0,Math.min(.42,(m.x-initial)/remaining)):Math.max(0,Math.min(1,(m.x-initial)/remaining));
+  const lane=(m.y-350)*.6;
+  const px=240+(end.x-240)*progress+lane*(1-progress),py=623+(end.y-623)*progress;
+  m.renderX=px;m.renderY=py;
   ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.hitAt||-100));
