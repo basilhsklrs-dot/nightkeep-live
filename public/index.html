@@ -142,7 +142,7 @@ function safeReload(reason){
 function pop(x,y,color,n=12){for(let i=0;i<n&&game.particles.length<180;i++)game.particles.push({x,y,vx:rnd(-40,40),vy:rnd(-70,10),life:rnd(.3,.9),color});}
 // Persistent per-viewer hero roster; active defenders have a renewable combat lease.
 const HERO_BASE_MS=300000,HERO_MAX_MS=1800000;
-function heroRecord(name){const id=String(name||'viewer').slice(0,64);game.heroes ||= {};const h=game.heroes[id] ||= {name:id,xp:0,level:1,kills:0,member:false,following:false,activeUntil:0};if(id.toLowerCase()==='katitrexei'){h.xp=Math.max(h.xp||0,16820);h.level=30;h.powerBonus=350;h.member=true;h.following=true;h.knockedOut=false;h.activeUntil=Date.now()+1800000;}return h;}
+function heroRecord(name){const id=String(name||'viewer').slice(0,64);game.heroes ||= {};const h=game.heroes[id] ||= {name:id,xp:0,level:1,kills:0,member:false,following:false,activeUntil:0};return h;}
 function addDefender(name,lease=HERO_BASE_MS){
  const id=String(name||'viewer').slice(0,64),h=heroRecord(id),now=Date.now();
  h.activeUntil=Math.min(Math.max(now,h.activeUntil||0)+lease,now+HERO_MAX_MS);
@@ -168,8 +168,8 @@ function grantXp(user,amount,member=false){
  const id=String(user||'viewer').slice(0,64),h=heroRecord(id),gain=Math.max(0,Number(amount)||0)*(retentionState().doubleUntil>game.time?2:1);
  focusHero(id);
  h.xp+=gain;if(member)h.member=true;const old=h.level||1;
- h.level=id.toLowerCase()==='katitrexei'?30:Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
- if(id.toLowerCase()==='katitrexei'){h.powerBonus=350;h.member=true;h.following=true;}
+ h.level=Math.min(50,1+Math.floor(Math.sqrt(h.xp/20)));
+ 
  reviveDefender(id);
  const d=addDefender(id,member?120000:Math.min(240000,Math.max(90000,gain*1500)));
  d.xp=h.xp;d.level=h.level;d.member=h.member;if(d.maxHp!=null)d.hp=Math.min(d.maxHp,d.hp+Math.max(6,gain*1.2));
@@ -717,7 +717,7 @@ function heroScore(p,side){
  return side==='siege'?base+Math.floor((p.siegeDamage||0)/5)+(p.siegeKOs||0)*50+(p.hostile||0)*20:base+Math.floor((p.damage||0)/5)+(p.kills||0)*25+(p.support||0)*12;
 }
 function topHeroIds(side){
- return (game.players||[]).filter(p=>((game.teams||{})[p.user]===(side==='siege'?'sieger':'defender')))
+ return (game.players||[]).filter(p=>String(p.user||'').replace(/^@/,'').toLowerCase()!=='katitrexei'&&((game.teams||{})[p.user]===(side==='siege'?'sieger':'defender')))
  .map(p=>({id:p.user,score:heroScore(p,side)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id);
 }
 function drawLiveLeaderboards(){
