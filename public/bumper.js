@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import * as THREE from '/three.module.js';
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x060b20);scene.fog=new THREE.FogExp2(0x070e27,.018);
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,300);camera.position.set(0,29,38);camera.lookAt(0,0,0);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.querySelector('#game').append(renderer.domElement);
