@@ -54,13 +54,16 @@ export function stepCombat(state,dt,{rng=Math.random}={}){
   u.targetId=target?.id||null;
   if(!target){u.animation='idle';continue;}
   const d=distance(u,target);
-  if(d>u.range){
+  if(u.ranged&&d<u.range*.42){
+   const speed=(u.speed||30)*dt;
+   const dx=(target.x-u.x)/Math.max(d,.001),dy=(target.y-u.y)/Math.max(d,.001);
+   u.x-=dx*speed;u.y-=dy*speed;u.animation='retreat';
+  }else if(d>u.range){
    const speed=(u.speed||30)*dt;
    const desired=u.ranged?Math.max(u.range*.68,u.range-15):u.range*.82;
    const travel=Math.min(speed,Math.max(0,d-desired));
    const dx=(target.x-u.x)/Math.max(d,.001),dy=(target.y-u.y)/Math.max(d,.001);
-   if(u.ranged&&d<u.range*.42){u.x-=dx*speed;u.y-=dy*speed;u.animation='retreat';}
-   else{u.x+=dx*travel;u.y+=dy*travel;u.animation='walk';}
+   u.x+=dx*travel;u.y+=dy*travel;u.animation='walk';
   }else if(u.cooldown<=0){
    u.windup=u.ranged?.42:.22;
    u.cooldown=u.ranged?2.1:1.1;
