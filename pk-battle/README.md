@@ -39,7 +39,7 @@ Android AccessibilityService ── /api/device/report ────────�
 ## Development
 
 ```bash
-cd pk-battle/server && npm ci && npm test        # 14 tests
+cd pk-battle/server && npm ci && npm test        # 14 tests (tests/*.spec.mjs)
 DEMO_MODE=true npm run build && npm run demo     # http://localhost:3000/?debug=1
 cd pk-battle/android && gradle :app:testDebugUnitTest :app:assembleDebug
 ```

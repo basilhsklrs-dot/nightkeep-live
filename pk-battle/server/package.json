@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "demo": "DEMO_MODE=true node --env-file-if-exists=.env dist/server.js",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run build && node --test tests/*.spec.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
