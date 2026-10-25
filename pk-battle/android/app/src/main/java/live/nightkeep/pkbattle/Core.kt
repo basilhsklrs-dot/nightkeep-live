@@ -28,6 +28,7 @@ class Prefs(ctx: Context) {
     var extraInvitePhrases: String get() = p.getString("phrases", "")!!; set(v) = p.edit().putString("phrases", v).apply()
     var extraAcceptLabels: String get() = p.getString("acceptLabels", "")!!; set(v) = p.edit().putString("acceptLabels", v).apply()
     var acceptViewIds: String get() = p.getString("viewIds", "")!!; set(v) = p.edit().putString("viewIds", v).apply()
+    var rival: String get() = p.getString("rival", "")!!; set(v) = p.edit().putString("rival", v.trim().removePrefix("@")).apply()
     var sound: Boolean get() = p.getBoolean("sound", true); set(v) = p.edit().putBoolean("sound", v).apply()
     var captureNext: Boolean get() = p.getBoolean("capture", false); set(v) = p.edit().putBoolean("capture", v).apply()
 

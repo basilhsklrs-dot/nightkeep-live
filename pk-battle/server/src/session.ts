@@ -35,6 +35,26 @@ export class Session {
   private lastOfficialRight: number | null = null;
   private hostUserId = '';
   opponentRoomLive = false;
+  /**
+   * Creator Battle (no TikTok PK): both creators stream this game in their own
+   * LIVE; the server reads both rooms. Never presented as an official TikTok PK.
+   */
+  rival: string | null = null;
+
+  startRival(handle: string) {
+    this.rival = handle;
+    this.creators.right = { name: handle, handle };
+    this.pk.rightAttribution = 'opponent_room';
+    this.push('right', `Creator Battle vs @${handle}`);
+    this.battle.start(this.rules.durationSec);
+  }
+
+  stopRival() {
+    this.rival = null;
+    this.creators.right = { name: 'OPPONENT', handle: '' };
+    this.pk.rightAttribution = 'none';
+    this.battle.stop();
+  }
 
   constructor(public id: string, public rules: Rules, host: { name: string; handle: string }, mode: Mode, seed?: number) {
     this.battle = new Battle(rules, seed);
@@ -203,7 +223,7 @@ export class Session {
     if (this.pk.phase === 'live' && this.pk.endsAtMs) b.syncTime((this.pk.endsAtMs - Date.now()) / 1000);
     b.tick();
     if (b.resultDone) {
-      if (this.mode === 'continuous') b.start();
+      if (this.mode === 'continuous' || (this.rival && this.pk.phase !== 'live')) b.start();
       else b.phase = 'waiting';
     }
   }
@@ -211,6 +231,8 @@ export class Session {
   snapshot() {
     return {
       id: this.id, mode: this.mode, creators: this.creators,
+      match: this.pk.phase === 'live' ? 'pk' : this.rival ? 'creator_battle' : 'none',
+      rival: this.rival,
       pk: this.pk, battle: this.battle.snapshot(),
       feed: this.feed.slice(-6), leaderboard: this.leaderboard(5),
     };

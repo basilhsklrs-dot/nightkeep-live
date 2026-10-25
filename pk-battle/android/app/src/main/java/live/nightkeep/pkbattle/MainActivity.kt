@@ -75,6 +75,18 @@ class MainActivity : Activity() {
         }
         root.addView(row)
 
+        title("CREATOR BATTLE (no TikTok PK needed)")
+        note("Both creators go LIVE in Mobile gaming mode and show this game. Your viewers fight for the LEFT castle, your rival's viewers for the RIGHT. Your rival only opens the game link in a browser.")
+        field("Rival TikTok username", prefs.rival) { prefs.rival = it }
+        button("⚔ START CREATOR BATTLE", Color.rgb(47, 168, 255)) {
+            Backend.control(prefs, "rival", mapOf("rival" to prefs.rival)) { DiagLog.log("ctl", "creator battle vs @${prefs.rival} → $it") }
+        }
+        button("END CREATOR BATTLE", Color.rgb(60, 50, 120)) { Backend.control(prefs, "rival_stop") { DiagLog.log("ctl", "creator battle ended → $it") } }
+        button("SHARE GAME LINK WITH RIVAL", Color.rgb(60, 50, 120)) {
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,
+                "NIGHTKEEP Creator Battle! Go LIVE in Mobile gaming mode and open: ${prefs.serverUrl}/?session=${prefs.session}"), "Share game link"))
+        }
+
         title("PK AUTO ACCEPT")
         note("OFF = do nothing. ASSIST = alert + vibrate, you tap Accept. AUTO = tap the TikTok Accept button for you.\nRequires enabling the accessibility service below. Quick Settings tile “PK Accept” turns it off instantly.")
         val group = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
@@ -134,6 +146,7 @@ class MainActivity : Activity() {
                 appendLine("Server: ONLINE ${if (j.optBoolean("demo")) "(DEMO)" else ""} mode=${j.optString("mode")}")
                 appendLine("TikTok LIVE: ${host?.optString("state") ?: "n/a"} ${host?.optString("lastError")?.takeIf { it.isNotEmpty() } ?: ""}")
                 appendLine("PK: ${pk?.optString("phase")}  opponent: ${opp?.optString("nickname")?.ifEmpty { opp.optString("uniqueId") } ?: "—"}")
+                j.optJSONObject("opponent")?.let { appendLine("Rival room @${it.optString("uniqueId")}: ${it.optString("state")}") }
                 appendLine("Official PK score: ${off?.opt("left") ?: "—"} : ${off?.opt("right") ?: "—"}  right team via: ${pk?.optString("rightAttribution")}")
                 append("Verified accepts: ${j.optInt("verifiedAccepts")}  events: ${j.optJSONObject("counters")?.optInt("events")}")
             }

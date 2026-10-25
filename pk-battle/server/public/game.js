@@ -300,6 +300,9 @@ function drawHud(t) {
   ctx.beginPath(); ctx.roundRect(-92, -38, 184, 76, 22); const tg = ctx.createLinearGradient(0, -38, 0, 38); tg.addColorStop(0, urgent ? '#ff4d4d' : '#3b2a7a'); tg.addColorStop(1, urgent ? '#7a0f1f' : '#140b33'); ctx.fillStyle = tg; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#ffd34d'; ctx.stroke();
   txt(b.phase === 'waiting' ? '--:--' : `${mm}:${ss}`, 0, 2, 46, '#fff', 'center', 900, 6);
   ctx.restore();
+  // What kind of match this is: never call a Creator Battle an official PK.
+  const label = s.match === 'pk' ? 'TIKTOK PK' : s.match === 'creator_battle' ? 'CREATOR BATTLE' : 'VS';
+  txt(label, 500, SAFE.top + 97, label === 'VS' ? 26 : 15, '#ffd34d', 'center', 900, 4);
   // Castle health bars
   healthBar(24, SAFE.top + 82, 420, 'left', b.castles.left.hp / b.castles.left.max, b.castles.left.shield / 6000, t);
   healthBar(556, SAFE.top + 82, 420, 'right', b.castles.right.hp / b.castles.right.max, b.castles.right.shield / 6000, t);
@@ -345,7 +348,7 @@ function drawHud(t) {
     txt(`⚡ ENERGY ${Math.round(e * 100)}%${e > 0.05 ? `  +${Math.round(e * 50)}% DMG` : ''}`, x + w / 2, ey + 16, 18, '#fff', 'center', 900, 4);
   }
   const prompts = ['TAP TO POWER UP YOUR TEAM!', 'SEND GIFTS TO ATTACK!', 'SUPPORT YOUR CREATOR!', 'WHO WILL WIN?'];
-  const pr = b.phase === 'waiting' ? (s.pk.phase === 'invited' ? 'PK INVITATION RECEIVED…' : 'WAITING FOR PK BATTLE…') : b.phase === 'ended' ? 'NEXT BATTLE SOON!' : prompts[Math.floor(t / 3) % prompts.length];
+  const pr = b.phase === 'waiting' ? (s.pk.phase === 'invited' ? 'PK INVITATION RECEIVED…' : s.rival ? 'CREATOR BATTLE STARTING…' : 'WAITING FOR PK BATTLE…') : b.phase === 'ended' ? 'NEXT BATTLE SOON!' : prompts[Math.floor(t / 3) % prompts.length];
   const pp = 1 + 0.04 * Math.sin(t * 5);
   ctx.save(); ctx.translate(500, ey + 62); ctx.scale(pp, pp); txt(pr, 0, 0, 38, '#ffe66d', 'center', 900, 8); ctx.restore();
   // Top supporters
@@ -373,7 +376,7 @@ function drawCenter(t, dt) {
     ctx.fillStyle = 'rgba(5,2,20,.45)'; ctx.fillRect(0, 430, W, 330);
     txt('NIGHTKEEP PK BATTLE', 500, 520, 62, '#fff', 'center', 900, 10);
     txt('TWO CASTLES — ONE BATTLEFIELD', 500, 590, 30, '#ffd34d', 'center', 900, 6);
-    txt(state.pk.phase === 'invited' ? 'PK INVITATION DETECTED' : 'THE BATTLE STARTS WITH THE NEXT PK', 500, 650, 26, '#cfc6ff', 'center', 800, 5);
+    txt(state.pk.phase === 'invited' ? 'PK INVITATION DETECTED' : state.rival ? `NEXT BATTLE VS @${clip(state.rival, 18).toUpperCase()}` : 'THE BATTLE STARTS WITH THE NEXT PK', 500, 650, 26, '#cfc6ff', 'center', 800, 5);
     if (b.reserve) txt(`${b.reserve} REINFORCEMENTS READY`, 500, 700, 26, TEAM.left.light, 'center', 800, 5);
   }
   if (b.phase === 'ended' && b.result) {

@@ -66,3 +66,22 @@ test('server: real PK telemetry flows through and correlates a device accept', a
     assert.equal(s.simulated, false);
   } finally { await app.close(); }
 });
+
+test('server: Creator Battle connects the rival room to the RIGHT team and loops battles', async () => {
+  const app = await startServer({ ...env, DEMO_MODE: 'false', TIKTOK_USERNAME: 'nightkeep.live', PORT: '0' });
+  const base = `http://127.0.0.1:${app.port}`;
+  const post = b => fetch(`${base}/api/control`, { method: 'POST', headers: { Authorization: 'Bearer dev' }, body: JSON.stringify(b) });
+  try {
+    assert.equal((await post({ action: 'rival', rival: 'nightkeep.live' })).status, 400, 'cannot battle yourself');
+    const r = await (await post({ action: 'rival', rival: '@rival.creator' })).json();
+    assert.equal(r.rival, 'rival.creator'); assert.equal(r.phase, 'countdown');
+    const slot = app.slots.get('nightkeep.live');
+    assert.equal(slot.opponent.uniqueId, 'rival.creator');
+    assert.equal(slot.opponent.side, 'right');
+    const s = await (await fetch(`${base}/api/state`)).json();
+    assert.equal(s.match, 'creator_battle'); assert.equal(s.creators.right.handle, 'rival.creator');
+    await post({ action: 'rival_stop' });
+    assert.equal(slot.opponent, undefined);
+    assert.equal((await (await fetch(`${base}/api/state`)).json()).match, 'none');
+  } finally { await app.close(); }
+});

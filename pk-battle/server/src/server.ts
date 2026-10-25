@@ -76,11 +76,12 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
     slot.session.handle(e);
   };
 
-  function attachOpponent(slot: Slot, uniqueId: string) {
+  function attachOpponent(slot: Slot, uniqueId: string, persistent = false) {
     if (!connectOpponent || demo || !uniqueId || slot.opponent?.uniqueId === uniqueId) return;
     clearTimeout(slot.opponentStopTimer);
     void slot.opponent?.stop();
-    const src = new RoomSource(uniqueId, 'right', env.EULER_API_KEY, 3);
+    // A Creator Battle rival may go LIVE later, so keep retrying; a PK opponent is tried 3 times.
+    const src = new RoomSource(uniqueId, 'right', env.EULER_API_KEY, persistent ? Infinity : 3);
     slot.opponent = src;
     src.on('event', e => route(slot, e));
     src.on('state', st => { slot.session.opponentRoomLive = st === 'live'; if (st === 'live') slot.session.pk.rightAttribution = 'opponent_room'; });
@@ -99,7 +100,7 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
         const recent = slot.device.find(r => r.kind === 'pk_accept_clicked' && Date.now() - r.at < 90_000);
         if (recent) { slot.verifiedAccepts++; recent.detail = `${recent.detail} | verified: pk_started ${e.battleId}`.slice(0, 200); }
       }
-      if (e.type === 'pk_ended' && slot.opponent) {
+      if (e.type === 'pk_ended' && slot.opponent && !slot.session.rival) {
         clearTimeout(slot.opponentStopTimer);
         slot.opponentStopTimer = setTimeout(() => { void slot.opponent?.stop(); slot.opponent = undefined; slot.session.opponentRoomLive = false; }, 30_000);
       }
@@ -167,9 +168,20 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
         if (!s) return json(res, 404, { error: 'unknown session' });
         if (b.action === 'start') s.session.battle.start(Number(b.durationSec) || rules.durationSec);
         else if (b.action === 'stop') s.session.battle.stop();
+        else if (b.action === 'rival') {
+          const h = clean(b.rival).trim().replace(/^@/, '');
+          if (!/^[\w.]{2,64}$/.test(h) || h.toLowerCase() === s.session.id.toLowerCase()) return json(res, 400, { error: 'invalid rival username' });
+          s.session.startRival(h);
+          clearTimeout(s.opponentStopTimer);
+          if (s.opponent && s.opponent.uniqueId !== h) { void s.opponent.stop(); s.opponent = undefined; }
+          attachOpponent(s, h, true);
+        } else if (b.action === 'rival_stop') {
+          s.session.stopRival();
+          void s.opponent?.stop(); s.opponent = undefined; s.session.opponentRoomLive = false;
+        }
         else if (b.action === 'mode' && (b.mode === 'pk' || b.mode === 'continuous')) { s.session.mode = b.mode; if (b.mode === 'continuous' && s.session.battle.phase === 'waiting') s.session.battle.start(); }
         else return json(res, 400, { error: 'unknown action' });
-        return json(res, 200, { ok: true, phase: s.session.battle.phase, mode: s.session.mode });
+        return json(res, 200, { ok: true, phase: s.session.battle.phase, mode: s.session.mode, rival: s.session.rival });
       }
       if (req.method === 'POST' && path === '/api/sim') {
         if (!allowSim) return json(res, 403, { error: 'simulation disabled (set ALLOW_SIM=true)' });
