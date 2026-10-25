@@ -484,6 +484,7 @@ function tower(x,y,w,h){
  rect(x+w/2-4,y+16,8,18,'#25293e');rect(x+w/2-2,y+19,4,10,'#f1c477');rect(x+w/2+1,y+19,1,10,'#9e7058');
 }
 function drawCastle(t){
+ cinematicCastleDetails(t);
  // Stonework glow and ambient keep silhouette.
  ctx.save();ctx.globalAlpha=.10+.04*Math.sin(t*2);rect(54,260,68,60,'#ffcd88');ctx.restore();
  rect(31,327,110,10,'#171d2b');rect(36,305,99,26,'#3b4053');tower(39,258,27,68);tower(112,249,28,79);tower(74,222,30,93);
@@ -569,7 +570,7 @@ function drawGiftGuide(){
 }
 function drawLandscape(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();if(game.shake>0)ctx.translate(Math.round(rnd(-2,2)*game.shake),Math.round(rnd(-2,2)*game.shake));
- rect(0,0,480,450,theme.sky);rect(0,100,480,150,theme.haze);rect(0,220,480,100,theme.haze);
+ cinematicBackground(false,t,theme,state.index);cinematicFloor(false,t,state.index);
  for(const s of stars){ctx.globalAlpha=s.a*(.8+.2*Math.sin(t*.7+s.x));rect(s.x,s.y,s.s,s.s,'#d4c5d9')}ctx.globalAlpha=1;
  rect(354,63,32,32,'#e4d5bd');rect(350,71,40,18,'#e4d5bd');rect(359,68,7,5,'#c9bcb1');rect(375,82,5,5,'#c9bcb1');rect(367,90,8,3,'#c9bcb1');
  poly([[0,237],[43,177],[75,204],[133,142],[170,199],[217,163],[271,216],[316,168],[372,223],[417,187],[480,225],[480,320],[0,320]],theme.ridge);
@@ -607,6 +608,7 @@ function drawLandscape(){
 // simulation, damage, timing and TikTok events are shared with the landscape view.
 function portraitEnemy(e){return{x:e.kind==='dragon'?240+(e.y-310)*2:122+(e.y-346)*4.5,y:460-(e.x-164)*.53};}
 function drawWorldBoss(e,x,y){
+ ctx.save();const lightning=.3+.25*Math.sin(game.time*12);ctx.globalAlpha=lightning;ctx.strokeStyle='#efb2fa';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-72,y-108);ctx.lineTo(x-40,y-70);ctx.lineTo(x-58,y-46);ctx.lineTo(x-19,y-12);ctx.stroke();ctx.restore();
  ctx.save();ctx.globalAlpha=.1+.08*Math.sin(game.time*5);ctx.fillStyle='#ff4c85';ctx.beginPath();ctx.arc(x,y-30,120,0,Math.PI*2);ctx.fill();ctx.restore();
  const pulse=1+.06*Math.sin(game.time*4);
  ctx.save();ctx.translate(x,y-27);ctx.scale(pulse,pulse);
@@ -775,6 +777,7 @@ function battleGroundDetail(t,theme){
  ctx.restore();
 }
 function heroSilhouette(x,y,team,level,attackAge,hitAge=100){
+ cinematicHeroHighlight(x,y,team,level);
  const siege=team==='sieger',tier=heroTier(level),t=game.time,main=siege?'#8d344c':'#4b86a7',light=siege?'#f07c90':'#9fe7ef',gold=tier>=3?'#e9c579':'#819ca8';
  const hit=hitAge>=0&&hitAge<.18,attack=attackAge>=0&&attackAge<.23;
  const progress=attack?attackAge/.23:0,reach=attack?Math.sin(progress*Math.PI)*16:0;
@@ -859,9 +862,88 @@ function drawTimedShowcase(){
  text('DEMO '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+' · AUTO REMOVE',240,610,'#b7c9d9',10,'center');
  ctx.restore();
 }
+
+/* 2.5D cinematic lighting: visual-only; designed for 480x854 tablet capture. */
+function cinematicBackground(vertical,t,theme,index){
+ const height=vertical?854:450, horizon=vertical?325:240;
+ ctx.save();
+ const sky=ctx.createLinearGradient(0,0,0,height);
+ const moods=[['#070f23','#375366','#263d38'],['#08162e','#5d829d','#b8d4e5'],['#201124','#a04437','#543129'],['#0d0b22','#52466b','#292339']];
+ const m=moods[index];
+ sky.addColorStop(0,m[0]);sky.addColorStop(.4,m[1]);sky.addColorStop(1,m[2]);
+ ctx.fillStyle=sky;ctx.fillRect(0,0,480,height);
+ // Layered distant ridges and volumetric haze give depth without masking units.
+ for(let layer=0;layer<3;layer++){
+  const y=horizon-72+layer*41,shift=Math.sin(t*(.045+layer*.015))*8;
+  ctx.fillStyle=[theme.ridge,theme.ridge2,theme.ground][layer];
+  ctx.beginPath();ctx.moveTo(0,height);
+  for(let x=-50;x<=550;x+=24){
+   const crest=Math.sin(x*.021+layer*2.1+shift*.015)*20+Math.sin(x*.055+layer)*10;
+   ctx.lineTo(x,y+crest);
+  }
+  ctx.lineTo(480,height);ctx.closePath();ctx.fill();
+ }
+ const moonX=367,moonY=vertical?198:92;
+ const aura=ctx.createRadialGradient(moonX,moonY,5,moonX,moonY,122);
+ aura.addColorStop(0,index===2?'#ffac6760':'#c9e3ff42');aura.addColorStop(1,'#ffffff00');
+ ctx.fillStyle=aura;ctx.fillRect(moonX-125,moonY-125,250,250);
+ ctx.fillStyle=index===2?'#f7b06e':'#d9e6ec';ctx.beginPath();ctx.arc(moonX,moonY,17,0,Math.PI*2);ctx.fill();
+ const haze=ctx.createLinearGradient(0,horizon-65,0,horizon+175);
+ haze.addColorStop(0,'#c0cfde00');haze.addColorStop(.48,index===2?'#ff9f6438':'#c6d8ec27');haze.addColorStop(1,'#10213300');
+ ctx.fillStyle=haze;ctx.fillRect(0,horizon-65,480,250);
+ ctx.restore();
+}
+function cinematicFloor(vertical,t,index){
+ const y=vertical?360:312,deep=vertical?733:450;
+ ctx.save();
+ const g=ctx.createLinearGradient(0,y,0,deep);
+ g.addColorStop(0,index===1?'#607985':index===2?'#66453c':'#35494a');
+ g.addColorStop(1,index===1?'#263d53':index===2?'#241c26':'#151d28');
+ ctx.fillStyle=g;ctx.fillRect(0,y,480,deep-y);
+ // Perspective floor lines are subtle, fixed and never a gameplay target.
+ ctx.strokeStyle='#cbd5df17';ctx.lineWidth=1;
+ const vanish={x:240,y:y+9};
+ for(let x=-350;x<=830;x+=98){ctx.beginPath();ctx.moveTo(vanish.x,vanish.y);ctx.lineTo(x,deep);ctx.stroke();}
+ for(let z=0;z<5;z++){const v=(z+1)/6,yy=y+(deep-y)*v*v;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(480,yy);ctx.stroke();}
+ const edge=ctx.createLinearGradient(0,0,480,0);
+ edge.addColorStop(0,'#0309157a');edge.addColorStop(.28,'#00000000');edge.addColorStop(.73,'#00000000');edge.addColorStop(1,'#0309157a');
+ ctx.fillStyle=edge;ctx.fillRect(0,y,480,deep-y);
+ ctx.restore();
+}
+function cinematicCastleDetails(t){
+ ctx.save();
+ // Side-lit battlements, layered stone seams and fire-lit windows.
+ const stone=ctx.createLinearGradient(30,226,145,330);
+ stone.addColorStop(0,'#cad1dc32');stone.addColorStop(.47,'#40536d12');stone.addColorStop(1,'#0b12236b');
+ ctx.fillStyle=stone;ctx.fillRect(31,257,109,75);
+ for(let n=0;n<21;n++){
+  const x=40+(n*37)%91,y=273+(n*17)%49;
+  ctx.strokeStyle=n%3?'#ccd3d833':'#161b2877';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+8,y);ctx.stroke();
+ }
+ for(const x of [65,116]){
+  const halo=ctx.createRadialGradient(x,293,0,x,293,32);
+  halo.addColorStop(0,'#ffc4769e');halo.addColorStop(1,'#ffb45a00');
+  ctx.fillStyle=halo;ctx.fillRect(x-32,261,64,64);
+ }
+ ctx.restore();
+}
+function cinematicHeroHighlight(x,y,side,level){
+ ctx.save();
+ const siege=side==='sieger',color=siege?'#ff8799':'#a5edff';
+ const aura=ctx.createRadialGradient(x,y-15,2,x,y-15,30);
+ aura.addColorStop(0,siege?'#ff456c52':'#41c9f050');aura.addColorStop(1,'#00000000');
+ ctx.fillStyle=aura;ctx.fillRect(x-32,y-48,64,64);
+ // Shiny shoulder line and ground-contact shadow.
+ ctx.fillStyle='#0008147c';ctx.beginPath();ctx.ellipse(x,y+12,19,5,0,0,6.283);ctx.fill();
+ ctx.strokeStyle=color;ctx.lineWidth=level>=10?2:1;ctx.globalAlpha=.7;
+ ctx.beginPath();ctx.moveTo(x-11,y-23);ctx.lineTo(x-5,y-27);ctx.moveTo(x+6,y-27);ctx.lineTo(x+12,y-23);ctx.stroke();
+ ctx.restore();
+}
+
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
- rect(0,0,480,854,theme.sky);rect(0,135,480,180,theme.haze);rect(0,315,480,425,theme.ground);
+ cinematicBackground(true,t,theme,state.index);cinematicFloor(true,t,state.index);
  for(const star of stars){ctx.globalAlpha=star.a*.7;rect(star.x,85+star.y*.55,star.s,star.s,'#d8ced7')}ctx.globalAlpha=1;
  rect(363,164,28,27,'#e4d5bd');rect(358,171,38,13,'#e4d5bd');rect(371,169,7,5,'#bdb5ae');
  poly([[0,312],[70,232],[116,274],[173,217],[239,285],[305,235],[367,283],[421,229],[480,297],[480,355],[0,355]],theme.ridge);
