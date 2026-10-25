@@ -1209,24 +1209,20 @@ function drawPortrait(){
  }
  game.lastMilitiaDrawTime=game.time;
  // Stable screen-space formation: presentation only, never changes hitboxes or combat ranges.
- const nkOccupied=[];
+
  function nkReadablePosition(e){
-   const p=portraitEnemy(e);
-   if(e.worldBoss||e.kind==='dragon')return p;
-   const side=e.ranged?1:0;
-   let best={x:p.x,y:p.y},cost=Infinity;
-   // Small shifts retain the logical impact position while distributing crowded sprites.
-   for(const [dx,dy] of [[0,0],[-22,0],[22,0],[-12,-22],[12,-22],[-26,22],[26,22],[-36,-15],[36,-15]]){
-     const x=Math.max(36,Math.min(444,p.x+dx)),y=p.y+dy+(side?-8:0);
-     let overlap=0;
-     for(const o of nkOccupied){
-       const dist=Math.hypot((x-o.x)*1.0,(y-o.y)*1.15);
-       if(dist<31)overlap+=(31-dist)*(31-dist);
-     }
-     const c=overlap+Math.abs(dx)*.12+Math.abs(dy)*.2;
-     if(c<cost){cost=c;best={x,y};}
-   }
-   nkOccupied.push(best);return best;
+   const base=portraitEnemy(e);
+   if(e.worldBoss||e.kind==='dragon')return base;
+   if(!Number.isInteger(e.nkVisualSlot))e.nkVisualSlot=((game.spawnNumber||0)+game.enemies.indexOf(e)*7)%17;
+   const n=e.nkVisualSlot,rank=Math.floor(n/7),lane=n%7;
+   const offsetX=(lane-3)*25,offsetY=rank*23+(e.ranged?-19:0);
+   const desiredX=Math.max(38,Math.min(442,base.x+offsetX));
+   const desiredY=Math.max(292,Math.min(590,base.y+offsetY));
+   if(e.nkVisualX==null){e.nkVisualX=desiredX;e.nkVisualY=desiredY;}
+   const alpha=.16;
+   e.nkVisualX+=(desiredX-e.nkVisualX)*alpha;
+   e.nkVisualY+=(desiredY-e.nkVisualY)*alpha;
+   return {x:e.nkVisualX,y:e.nkVisualY};
  }
  const enemies=[...game.enemies].sort((a,b)=>(b.x-a.x)||(a.y-b.y));
  for(const e of enemies){
