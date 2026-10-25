@@ -538,7 +538,7 @@ function update(dt){
   // Ranged attacks are handled below, melee has its own close-quarters branch.
   if(e.siegerHero&&!e.ranged){
    const alive=game.defenders.filter(d=>d.hp>0);
-   const nearby=alive.filter(d=>{const pos=defenderPos(game.defenders.indexOf(d)+3);return Math.abs(e.x-(pos?.worldX||210))<58 && Math.abs(e.y-(pos?.worldY||d.y||363))<31;});
+   const nearby=alive.filter(d=>{const pos=portraitDefender(game.defenders.indexOf(d)+3),attacker=portraitEnemy(e);return Math.hypot(attacker.x-pos.x,attacker.y-pos.y)<90;});
    if(nearby.length&&e.x<=270){
     e.attack=(e.attack??0)-dt;
     if(e.attack<=0){
