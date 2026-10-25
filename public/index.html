@@ -443,7 +443,8 @@ function update(dt){
    m.x+=Math.max(-30*dt,Math.min(30*dt,mx-m.x));m.y+=Math.max(-16*dt,Math.min(16*dt,my-m.y));
    continue;
   }
-  const desiredX=m.ranged?166:Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
+  const underPressure=m.ranged&&game.enemies.some(e=>e.hp>0&&!e.ranged&&e.x-m.x<67&&Math.abs(e.y-m.y)<30);
+  const desiredX=m.ranged?(underPressure?150:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
   const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
   const prevX=m.x;
   m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
@@ -517,7 +518,7 @@ function update(dt){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(3,(e.damage||15)*.3)*(guard.blockUntil>game.time?.65:1));guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
+    if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1);guard.hp=Math.max(0,guard.hp-damage);guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
     continue;
    }
   }
@@ -555,6 +556,9 @@ function update(dt){
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>350){e.x-=e.speed*dt;continue;}
   if(e.ranged){
+   // Hostile archers hold the siege rear line and retreat if defenders break through.
+   const threat=(game.militia||[]).some(m=>m.hp>0&&!m.ranged&&m.x>e.x-78&&Math.abs(m.y-e.y)<30);
+   if(threat&&e.x<410)e.x=Math.min(410,e.x+e.speed*dt*.8);
    e.projectileCooldown=(e.projectileCooldown??1.5)-dt;
    if(e.projectileCooldown<=0){
     e.projectileCooldown=2.5;e.lastAttackAt=game.time;e.combatState='release';
