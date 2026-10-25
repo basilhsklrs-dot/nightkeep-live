@@ -908,6 +908,12 @@ function drawPortrait(){
  drawLiveLeaderboards();drawEngagementHud();
  const onlineNow=Date.now(),activeD=(game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>onlineNow).length,activeS=(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>onlineNow).length;
  text('🛡 ACTIVE '+activeD+'       ⚔ ACTIVE '+activeS,240,306,'#e6efc9',13,'center');
+ // Keep the audience informed when the TikTok event connection (not their livestream) drops.
+ if(!demo&&backendState!=='live'){
+  rect(22,321,436,46,'#3a1322f2');rect(22,321,436,3,'#ff7c83');
+  text('⚠ TIKTOK EVENTS: '+(backendState==='connecting'?'RECONNECTING':'DISCONNECTED'),240,341,'#fff0e8',16,'center');
+  text('NEW VIEWERS / LIKES NOT REACHING THE GAME',240,356,'#ffd4bb',10,'center');
+ }
  if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
  if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
  if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
