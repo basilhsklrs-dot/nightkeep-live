@@ -423,10 +423,10 @@ function update(dt){
  game.attack=1;
  game.militia ||= [];
  game.militiaSpawn=(game.militiaSpawn||0)-dt;
- if(game.militiaSpawn<=0&&game.militia.length<18){
+ if(game.militiaSpawn<=0&&game.militia.length<7){
   const ranged=Math.random()<.38;
-  game.militia.push({x:151,y:338+Math.random()*28,hp:ranged?65:105,maxHp:ranged?65:105,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
-  game.militiaSpawn=2.8;
+  game.militia.push({x:151,y:338+Math.random()*28,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
+  game.militiaSpawn=5.5;
  }
  for(let j=0;j<game.militia.length;j++){
   const m=game.militia[j];m.cooldown-=dt*speed;m.phase+=dt*6;
@@ -442,8 +442,8 @@ function update(dt){
    if(Math.abs(laneDelta)>3)m.y+=Math.sign(laneDelta)*Math.min(Math.abs(laneDelta),19*dt);
   }else if(m.x<186)m.x=Math.min(186,m.x+18*dt);
   if(Math.abs(enemy.x-m.x)>reach+10||Math.abs(enemy.y-m.y)>(m.ranged?75:24)||m.cooldown>0)continue;
-  m.cooldown=m.ranged?2.0:.9;m.hitAt=game.time;m.hitTargetX=enemy.x;m.hitTargetY=enemy.y;
-  const damage=m.ranged?14:19;
+  m.cooldown=m.ranged?2.8:1.45;m.hitAt=game.time;m.hitTargetX=enemy.x;m.hitTargetY=enemy.y;
+  const damage=m.ranged?6:9;
   if(m.ranged){if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:enemy,damage,owner:'Φρουρά',color:'#b8e9fc',life:2});}
   else {enemy.hp-=damage;enemy.lastHitOwner='Φρουρά';enemy.lastHitAt=game.time;enemy.lastHitDamage=damage;enemy.attackPulse=game.time;pop(enemy.x,enemy.y-10,'#cfe7f8',4);}
  }
@@ -1013,6 +1013,7 @@ function drawReadableArcher(x,y,t,enemy=true){
  ctx.restore();
 }
 
+function dtRenderStep(t){return Math.min(.04,Math.max(.008,game.time-(game.lastMilitiaDrawTime||game.time-.016)));}
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
  cinematicBackground(true,t,theme,state.index);cinematicFloor(true,t,state.index);
@@ -1030,21 +1031,23 @@ function drawPortrait(){
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  // Draw the real autonomous garrison: melee advance, archers remain behind.
  for(const m of game.militia||[]){
-  // Interpolate from castle gate to the SAME projection used by enemy sprites.
-  // This prevents soldiers visually drifting to the top-right while fighting elsewhere.
-  const foe=m.target&&m.target.hp>0?m.target:null;
-  const end=foe?portraitEnemy(foe):{x:240,y:470};
-  const initial=151,remaining=foe?Math.max(1,foe.x-initial):100;
-  const progress=m.ranged?Math.max(0,Math.min(.42,(m.x-initial)/remaining)):Math.max(0,Math.min(1,(m.x-initial)/remaining));
-  const lane=(m.y-350)*.6;
-  const px=240+(end.x-240)*progress+lane*(1-progress),py=623+(end.y-623)*progress;
-  m.renderX=px;m.renderY=py;
+  // Stable world-to-screen transform. Target switches never teleport a unit.
+  // Enemy 2D projection is {x:122+(enemy.y-346)*4.5,y:460-(enemy.x-164)*.53}.
+  const projectedX=122+(m.y-346)*4.5;
+  const projectedY=460-(m.x-164)*.53;
+  if(!Number.isFinite(m.renderX)){m.renderX=projectedX;m.renderY=projectedY;}
+  const maxMove=dtRenderStep(t)*85;
+  const vx=projectedX-m.renderX,vy=projectedY-m.renderY,dist=Math.hypot(vx,vy);
+  const step=dist>0?Math.min(1,maxMove/dist):1;
+  m.renderX+=vx*step;m.renderY+=vy*step;
+  const px=m.renderX,py=m.renderY;
   ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.hitAt||-100));
   ctx.restore();
   if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
+ game.lastMilitiaDrawTime=game.time;
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss&&!e.siegerHero)continue;
