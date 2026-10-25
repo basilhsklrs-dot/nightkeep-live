@@ -485,7 +485,7 @@ function update(dt){
  for(let i=3;i<game.defenders.length+3;i++){
   const d=game.defenders[i-3];d.cooldown-=dt*speed;
   if(d.hp!==undefined&&d.hp<=0){d.cooldown=.5;continue;}
-  if(d.cooldown<=0){d.lastAttackAt=game.time;const pos=defenderPos(i);const isRanged=heroRecord(d.name).combatClass==='archer';if(isRanged)shoot(pos.x,pos.y-12,16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018+Math.floor((d.level||1)/5)*.12))*(d.member?1.5:1)*(d.following?1.35:1),'#9ccde0',d.name);else{const foe=target();if(foe&&foe.x<=245){const damage=22*(1+Math.min(5,(d.level||1)*.15))*(d.member?1.5:1);foe.hp-=damage;foe.lastHitOwner=d.name;foe.lastHitAt=game.time;foe.lastHitDamage=Math.round(damage);pop(foe.x,foe.y-12,'#b6e5f3',4);}}d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0)+(d.following?.15:0));}
+  if(d.cooldown<=0){d.lastAttackAt=game.time;const pos=defenderPos(i);const isRanged=heroRecord(d.name).combatClass==='archer';if(isRanged)shoot(pos.x,pos.y-12,16*(1+Math.min(8,(d.level||1)*.22+(d.kills||0)*.03+(d.powerBonus||0)*.018+Math.floor((d.level||1)/5)*.12))*(d.member?1.5:1)*(d.following?1.35:1),'#9ccde0',d.name);else{const foe=target();if(foe&&foe.x<=290){const damage=22*(1+Math.min(5,(d.level||1)*.15))*(d.member?1.5:1);foe.hp-=damage;foe.lastHitOwner=d.name;foe.lastHitAt=game.time;foe.lastHitDamage=Math.round(damage);pop(foe.x,foe.y-12,'#b6e5f3',4);}}d.cooldown=(1.8+rnd(0,.4))/(i<3?1:1+Math.min(2.2,((d.level||1)-1)*.065+(d.powerBonus||0)*.005)+(d.member?.25:0)+(d.following?.15:0));}
  }
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
@@ -518,7 +518,7 @@ function update(dt){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1);guard.hp=Math.max(0,guard.hp-damage);guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
+    if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
     continue;
    }
   }
@@ -549,7 +549,7 @@ function update(dt){
    const guard=game.militia.find(m=>m.hp>0&&!m.ranged&&Math.abs(m.y-e.y)<30);
    if(guard&&e.x<=guard.x+38){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.35;e.lastAttackAt=game.time;const damage=Math.max(10,15+(e.siegerLevel||1)*2);guard.hp=Math.max(0,guard.hp-damage);player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+damage;pop(guard.x,guard.y-12,'#f5acac',5);}
+    if(e.attack<=0){e.attack=1.35;e.lastAttackAt=game.time;const damage=Math.max(10,15+(e.siegerLevel||1)*2);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+damage;pop(guard.x,guard.y-12,'#f5acac',5);}
     continue;
    }
   }
@@ -584,7 +584,7 @@ function update(dt){
    victim.hp=Math.max(0,victim.hp-arrow.damage);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=arrow.damage;
    if(victim.hp<=0)knockoutDefender(victim);
   }else if(arrow.kind==='npc'&&victim&&victim.hp>0&&game.militia.includes(victim)){
-   victim.hp=Math.max(0,victim.hp-arrow.damage);victim.staggerUntil=game.time+.2;
+   victim.hp=Math.max(0,victim.hp-arrow.damage);victim.lastDamage=arrow.damage;victim.lastDamageAt=game.time;victim.staggerUntil=game.time+.2;
   }else if(arrow.kind==='castle'&&game.shield<=0){game.hp=Math.max(0,game.hp-8);}
  }
  game.siegeArrows=game.siegeArrows.filter(a=>!a.resolved&&game.time-a.at<1.2);
@@ -1146,6 +1146,7 @@ function drawPortrait(){
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),(m.staggerUntil||0)>t?0.08:100);
   ctx.restore();
+  if(m.lastDamageAt!=null&&t-m.lastDamageAt<.65){const age=t-m.lastDamageAt;ctx.save();ctx.globalAlpha=1-age/.65;text('-'+Math.ceil(m.lastDamage||0),px,py-36-age*22,'#ff989e',13,'center');ctx.restore();smallImpact(px,py-15,'#ffa4a9',age);}
   if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
  game.lastMilitiaDrawTime=game.time;
