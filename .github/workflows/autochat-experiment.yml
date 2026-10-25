@@ -1,0 +1,19 @@
+name: Isolated autochat checks
+on:
+  push:
+    branches:
+      - experiment/autochat-isolated-20261025
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/autochat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check bot.js
+      - run: node --test bot.test.js
