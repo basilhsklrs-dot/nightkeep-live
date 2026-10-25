@@ -176,7 +176,7 @@ function grantXp(user,amount,member=false){
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
  let p=game.players.find(p=>p.user===user);
- if(!p){if(game.players.length>=500)game.players.shift();p={user,displayName:(game.displayNames||{})[user]||'',likes:0,kills:0,support:0,hostile:0,damage:0,siegeDamage:0,siegeKOs:0,joins:0};game.players.push(p)}
+ if(!p){if(game.players.length>=500)game.players.shift();p={user,displayName:(game.displayNames||{})[user]||'',likes:0,giftPoints:0,kills:0,support:0,hostile:0,damage:0,siegeDamage:0,siegeKOs:0,joins:0};game.players.push(p)}
  return p;
 }
 const enemyDefaults={fast:'goblin',mini:'armored',dragon:'fire',normal:'normal'};
@@ -253,13 +253,16 @@ function applyEvent(e){
  if(e.type==='join'){ensureViewerFighter(e.user);return;}
  if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.siegeScore=(game.engagement.siegeScore||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.engagement.clashDefense=(game.engagement.clashDefense||0)+((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.clashSiege=(game.engagement.clashSiege||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.boost=Math.min(400,game.boost+((game.teams||{})[e.user]==='sieger'?0:count*(game.engagement?.lastStandActive?1.2:.6)));game.siegeBoost=Math.min(400,(game.siegeBoost||0)+((game.teams||{})[e.user]==='sieger'?count*(game.engagement?.lastStandActive?1.2:.6):0));player(e.user).likes+=count;game.teams||={};game.teams[e.user]||='defender';grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){const followedHero=heroRecord(e.user);followedHero.following=true;followedHero.powerBonus=Math.max(40,followedHero.powerBonus||0);grantXp(e.user,30);game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);if(game.teams[e.user]==='sieger')summonSieger(e.user);eventBanner={user:e.user,title:'FOLLOW BONUS · HERO POWER +40',until:Date.now()+5500,color:'#8fe2ad'};feed(displayHeroName(e.user),'joined '+(game.teams[e.user]==='sieger'?'siegers':'defenders'),'#8fe2ad');beep('follow');return;}
- if(e.type==='member'){grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
+ if(e.type==='member'){player(e.user).giftPoints=(player(e.user).giftPoints||0)+100;grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  if(e.type!=='gift')return;
- if(e.action==='member'){grantXp(e.user,100*count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
+ if(e.action==='member'){const memberGift=giftProgress(e);if(!memberGift)return;player(e.user).giftPoints=(player(e.user).giftPoints||0)+100*memberGift.count;grantXp(e.user,100*memberGift.count,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART · ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
  const assigned=(game.teams||{})[e.user]||'defender';
  const giftLedger=giftProgress(e);if(!giftLedger)return;
  const coinsPerGift=Math.max(0,Number(e.coins)||0)||(String(e.giftName||'').trim().toLowerCase()==='rose'?1:0);
  const coins=coinsPerGift*Math.max(0,(giftLedger.total*(100+giftLedger.bonus)-giftLedger.previous*(100+giftLedger.priorBonus))/100);
+  // Score from every confirmed gift, regardless of its battle action. Combo progress is already deduplicated by giftProgress.
+  const giftScore=Math.max(giftLedger.count,Math.round(coins*10));
+  player(e.user).giftPoints=(player(e.user).giftPoints||0)+giftScore;
  grantXp(e.user,Math.max(10,coins*4));const hero=heroRecord(e.user);hero.powerBonus=Math.min(350,(hero.powerBonus||0)+Math.max(1,coins*.7));
  if(assigned==='sieger')summonSieger(e.user,coins);else {const own=game.defenders.find(d=>d.name===e.user);if(own){own.powerBonus=hero.powerBonus;own.maxHp=100+Math.min(650,(own.level-1)*16)+Math.min(350,hero.powerBonus);own.hp=Math.min(own.maxHp,own.hp+Math.max(12,coins*12));}}
  if(coins>0){
@@ -708,7 +711,7 @@ function drawEngagementHud(){
 
 function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
 function heroScore(p,side){
- const base=(p.joins||0)*5+Math.floor((p.likes||0)/10);
+ const base=(p.joins||0)*5+(p.likes||0)+(p.giftPoints||0);
  return side==='siege'?base+Math.floor((p.siegeDamage||0)/5)+(p.siegeKOs||0)*50+(p.hostile||0)*20:base+Math.floor((p.damage||0)/5)+(p.kills||0)*25+(p.support||0)*12;
 }
 function topHeroIds(side){
