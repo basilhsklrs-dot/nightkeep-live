@@ -75,15 +75,15 @@ document.body.classList.toggle('broadcast',stageMode);
 canvas.height=portrait?854:450;
 document.body.classList.toggle('stage',stageMode);
 const rnd = (a,b) => a+Math.random()*(b-a);
-const STAGE_SECONDS=105;
+const STAGE_SECONDS=140; const WAVES_PER_STAGE=4; const WAVE_SECONDS=STAGE_SECONDS/WAVES_PER_STAGE;
 const STAGES=[
  {name:'ΔΑΣΟΣ ΤΗΣ ΣΕΛΗΝΗΣ',short:'ΔΑΣΟΣ',sky:'#131e2b',haze:'#233647',ridge:'#354b53',ridge2:'#486355',ground:'#345244',edge:'#7f9d72',road:'#74735c',trail:'#9a8b6a',tree:'#244637',grass:'#9eae79',accent:'#a9dfb0'},
  {name:'ΠΑΓΩΜΕΝΟ ΒΑΣΙΛΕΙΟ',short:'ΠΑΓΟΣ',sky:'#19243b',haze:'#3c5369',ridge:'#698aa0',ridge2:'#a2bfcc',ground:'#bdcfda',edge:'#e0edf0',road:'#849ba6',trail:'#b1c6ce',tree:'#557b8b',grass:'#edf8f8',accent:'#afe7fa'},
  {name:'ΗΦΑΙΣΤΕΙΟ ΤΗΣ ΣΤΑΧΤΗΣ',short:'ΗΦΑΙΣΤΕΙΟ',sky:'#281b30',haze:'#55313c',ridge:'#663740',ridge2:'#834847',ground:'#46373f',edge:'#956653',road:'#73605a',trail:'#ad7f5e',tree:'#48313b',grass:'#d48a5a',accent:'#ffc077'},
  {name:'ΣΚΟΤΕΙΝΟ ΦΡΟΥΡΙΟ',short:'ΦΡΟΥΡΙΟ',sky:'#19162e',haze:'#302543',ridge:'#493859',ridge2:'#62506d',ground:'#3d354d',edge:'#80728f',road:'#6d617b',trail:'#a090ac',tree:'#29273f',grass:'#aa8bbd',accent:'#d6b1ed'}
 ];
-function stageState(time=game.journeyTime||0){const cleared=Math.floor(Math.max(0,time)/STAGE_SECONDS);return{index:cleared%4,cycle:Math.floor(cleared/4)+1,cleared,progress:(Math.max(0,time)%STAGE_SECONDS)/STAGE_SECONDS,wave:1+Math.floor((Math.max(0,time)%STAGE_SECONDS)/35),theme:STAGES[cleared%4]};}
-function stageDifficulty(){return 1+Math.min(1.5,stageState().cleared*.12);}
+function stageState(time=game.journeyTime||0){const cleared=Math.floor(Math.max(0,time)/STAGE_SECONDS);return{index:cleared%4,cycle:Math.floor(cleared/4)+1,cleared,progress:(Math.max(0,time)%STAGE_SECONDS)/STAGE_SECONDS,wave:Math.min(WAVES_PER_STAGE,1+Math.floor((Math.max(0,time)%STAGE_SECONDS)/WAVE_SECONDS)),theme:STAGES[cleared%4]};}
+function stageDifficulty(){const stage=stageState();return 1+Math.min(3,stage.cleared*.16+(stage.wave-1)*.055);}
 function advanceStage(dt){
  game.journeyTime=(game.journeyTime||0)+dt*(demo?3:1);
  const state=stageState();if(state.wave!==waveBanner.wave||state.index!==waveBanner.stage){waveBanner={until:Date.now()+2700,wave:state.wave,stage:state.index};}if(state.cleared!==(game.stageSeen||0)){game.stageSeen=state.cleared;stageBanner={until:Date.now()+4000,index:state.index,cycle:state.cycle};beep('stage');visualMoment('✦ NEW STAGE ✦',state.theme.name,state.theme.accent,4500);feed('NIGHTKEEP',`Νέα πίστα: ${state.theme.name} · Κύκλος ${state.cycle}`,state.theme.accent);}
@@ -420,7 +420,7 @@ function update(dt){
  }
  engagementTick();engagementExtras(dt);retentionTick();
  updateNightkeepSystems(dt);
- game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=1+Math.floor(game.time/35);game.best=Math.max(game.best,game.wave);
+ game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=stageState().wave;game.best=Math.max(game.best,stageState().cleared*WAVES_PER_STAGE+game.wave);
  game.boost=Math.max(0,game.boost-dt*(4+game.boost*.08));game.siegeBoost=Math.max(0,(game.siegeBoost||0)-dt*(4+(game.siegeBoost||0)*.08));game.shield=Math.max(0,game.shield-dt);game.flash=Math.max(0,game.flash-dt);game.shake=Math.max(0,game.shake-dt*2);
  game.spawn-=dt;if(game.spawn<=0){
    game.spawnNumber=(game.spawnNumber||0)+1;
@@ -1405,7 +1405,7 @@ function draw(){
 }
 
 let uiTimer=0;
-function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
+function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().cleared+1} · WAVE ${stageState().wave}/${WAVES_PER_STAGE}`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
 function frame(now){
  frameAt=now;const elapsed=Math.min(.1,(now-last)/1000);last=now;accumulator+=elapsed;
