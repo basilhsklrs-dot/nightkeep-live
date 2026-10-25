@@ -223,15 +223,21 @@ export async function startServer(env = process.env) {
       room = String(state.roomId || ''); failures = 0;
       clearTimeout(reconnectTimer); reconnectTimer = undefined;
       updateStatus('live');
+      // Give the connection loop time to settle before the first authorized chat instruction.
+      setTimeout(() => { void sendGuidance(); }, 1000);
     } catch (error) {
       // Never log raw error objects: these can contain signed URLs or headers.
       console.warn(`TikTok connect failed (${clean(error?.name || 'Error')}); streamer may be offline, rate limited or blocked.`);
       if (ticket === generation && !stopping) { await dispose(); retry(); }
     } finally { connecting = false; }
   }
-  // At most one guidance message per 4 minutes, only when the TikTok event connection is live.
-  // Never send from room events, preventing loops, bursts and accidental spam.
-  const chatGuidanceTimer = setInterval(async () => {
+  // First authenticated instruction can go out when a LIVE connection is established;
+  // subsequent instructions remain rate-limited to one every four minutes.
+  let lastChatAttemptAt = 0;
+  const sendGuidance = async () => {
+    if(!chatReady||chatPaused||chatSending||demo||stopping||connecting||status.state!=='live'||!connection?.isConnected||!room)return;
+    if(Date.now()-lastChatAttemptAt<240000)return;
+    lastChatAttemptAt=Date.now();
     if(!chatReady||chatPaused||chatSending||demo||stopping||connecting||status.state!=='live'||!connection?.isConnected||!room)return;
     chatSending=true;
     try {
@@ -243,7 +249,8 @@ export async function startServer(env = process.env) {
       console.warn(JSON.stringify({event:'guidance_chat_failed',reason:clean(error?.name||'Error'),count:chatFailures}));
       if(chatFailures>=3){chatPaused=true;console.warn('Guidance chat paused after 3 failed attempts; check TikTok session and sign provider access.');}
     }finally{chatSending=false;}
-  },240000);
+  };
+  const chatGuidanceTimer = setInterval(() => { void sendGuidance(); }, 15000);
   if(chatEnabled&&!chatReady)console.warn('TikTok guidance chat disabled: configure EULER_API_KEY, TIKTOK_SESSION_ID, TIKTOK_TARGET_IDC.');
   const watchdog=setInterval(()=>{
     if(!demo&&!stopping&&!connecting&&status.state==='live'&&!connection?.isConnected){
