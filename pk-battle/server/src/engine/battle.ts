@@ -70,7 +70,9 @@ export class Battle {
   start(durationSec = this.rules.durationSec) {
     this.round++;
     this.castles = { left: this.castle(), right: this.castle() };
+    const bank = { left: this.stats.left.likeBank, right: this.stats.right.likeBank };
     this.stats = { left: emptyStats(), right: emptyStats() };
+    this.stats.left.likeBank = bank.left; this.stats.right.likeBank = bank.right;
     this.units = []; this.result = null;
     this.contributors.clear();
     this.timeLeft = Math.max(30, Math.min(3600, durationSec));
@@ -101,8 +103,8 @@ export class Battle {
     const s = this.stats[side], L = this.rules.likes;
     this.addScore(side, 'likes', count, this.rules.score.like);
     this.credit(side, owner, name, count * this.rules.score.like);
-    if (this.phase !== 'battle') return;
-    s.energy = Math.min(L.maxEnergy, s.energy + count * L.energyPerLike);
+    // Before the battle, likes still bank soldiers as queued reinforcements.
+    if (this.phase === 'battle') s.energy = Math.min(L.maxEnergy, s.energy + count * L.energyPerLike);
     s.likeBank += count;
     while (s.likeBank >= L.likesPerSoldier) { s.likeBank -= L.likesPerSoldier; this.act(side, 'soldier', owner, name, 1); }
   }

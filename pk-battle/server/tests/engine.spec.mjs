@@ -143,3 +143,11 @@ test('session: official opponent score delta drives RIGHT only when opponent roo
   s.handle({ type: 'pk_ended', room: 'x', side: 'left', source: 'tiktok', at: 0, battleId: 'B', reason: 'finished', results: {} });
   assert.equal(s.battle.phase, 'ended');
 });
+
+test('battle: likes before the PK bank queued reinforcements', () => {
+  const b = new Battle({ ...defaultRules, countdownSec: 0.1 }, 6);
+  b.likes('left', 'u', 'U', 130);
+  assert.equal(b.snapshot().reserve, 2);
+  b.start(60); b.tick(); b.tick();
+  assert.equal(b.units.filter(u => u.side === 'left').length, 2);
+});

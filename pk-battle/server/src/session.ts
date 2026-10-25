@@ -72,6 +72,7 @@ export class Session {
         this.counters.likes += e.count;
         b.likes(e.side, e.user, e.displayName, e.count);
         this.lead(e.side, e.displayName, e.user, e.count * R.score.like);
+        if (b.phase !== 'battle') this.push(e.side, `${e.displayName} tapped x${e.count}`);
         return;
       case 'follow':
         this.counters.follows++;
