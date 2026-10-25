@@ -83,6 +83,20 @@ export async function startServer(env = process.env) {
   const demo = env.DEMO_MODE === 'true' || process.argv.includes('--demo');
   const streamer = clean(env.TIKTOK_USERNAME || '').replace(/^@/, '');
   if (!demo && !/^[\w.]{2,64}$/.test(streamer)) throw Error('Set TIKTOK_USERNAME in .env (without @), or run npm run demo.');
+  // Outbound messages are disabled unless the creator explicitly configures an authenticated session.
+  const chatEnabled = env.TIKTOK_CHAT_ENABLED === 'true';
+  const chatSessionId = String(env.TIKTOK_SESSION_ID || '');
+  const chatTargetIdc = String(env.TIKTOK_TARGET_IDC || '');
+  const chatReady = chatEnabled && Boolean(env.EULER_API_KEY && chatSessionId && chatTargetIdc);
+  const chatMessages = [
+    '⚔️ You are automatically in the battle! Watch your hero fight!',
+    '🧡 FOLLOW for extra power and faster attacks!',
+    '❤️ TAP TAP to gain XP and keep your hero alive!',
+    '🛡️ TYPE 1 for DEFENDERS · ⚔️ TYPE 2 for SIEGERS!',
+    '🎁 Gifts unlock special powers and help your hero level up!',
+    '🏆 Fight, earn points and reach the TOP 3!'
+  ];
+  let chatIndex = 0, chatSending = false, chatFailures = 0, chatPaused = false;
   const overrides = JSON.parse(env.GIFT_ID_MAP || '{}');
   for(const value of Object.values(overrides)){const action=typeof value==='string'?value:value?.action;if(!defaultSkins[action])throw Error('Invalid GIFT_ID_MAP action');if(typeof value==='object'&&value.skin&&skinActions[value.skin]!==action)throw Error('Gift skin does not match action');}
   const origins = (env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -186,7 +200,8 @@ export async function startServer(env = process.env) {
       if (ticket !== generation || stopping) return;
       connection = new TikTokLiveConnection(streamer, {
         enableExtendedGiftInfo: false, processInitialData: false,
-        ...(env.EULER_API_KEY ? { signApiKey: env.EULER_API_KEY } : {})
+        ...(env.EULER_API_KEY ? { signApiKey: env.EULER_API_KEY } : {}),
+        ...(chatReady ? { session: {cookie:{type:'cookie',value:{sessionId:chatSessionId,ttTargetIdc:chatTargetIdc}}} } : {})
       });
       const current = connection;
       const valid = () => ticket === generation && !stopping;
@@ -214,6 +229,22 @@ export async function startServer(env = process.env) {
       if (ticket === generation && !stopping) { await dispose(); retry(); }
     } finally { connecting = false; }
   }
+  // At most one guidance message per 4 minutes, only when the TikTok event connection is live.
+  // Never send from room events, preventing loops, bursts and accidental spam.
+  const chatGuidanceTimer = setInterval(async () => {
+    if(!chatReady||chatPaused||chatSending||demo||stopping||connecting||status.state!=='live'||!connection?.isConnected||!room)return;
+    chatSending=true;
+    try {
+      await connection.sendMessage(chatMessages[chatIndex % chatMessages.length],room);
+      chatIndex++;chatFailures=0;
+      console.info(JSON.stringify({event:'guidance_chat_sent',number:chatIndex}));
+    }catch(error){
+      chatFailures++;
+      console.warn(JSON.stringify({event:'guidance_chat_failed',reason:clean(error?.name||'Error'),count:chatFailures}));
+      if(chatFailures>=3){chatPaused=true;console.warn('Guidance chat paused after 3 failed attempts; check TikTok session and sign provider access.');}
+    }finally{chatSending=false;}
+  },240000);
+  if(chatEnabled&&!chatReady)console.warn('TikTok guidance chat disabled: configure EULER_API_KEY, TIKTOK_SESSION_ID, TIKTOK_TARGET_IDC.');
   const watchdog=setInterval(()=>{
     if(!demo&&!stopping&&!connecting&&status.state==='live'&&!connection?.isConnected){
       updateStatus('offline');void dispose().then(retry);
