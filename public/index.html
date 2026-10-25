@@ -755,6 +755,8 @@ function battleSeparation(m,all,dt){let dy=0;for(const o of all){if(o===m||o.hp<
 function combatShadow(px,py,scale){ctx.save();ctx.globalAlpha=.3;ctx.fillStyle='#050c17';ctx.beginPath();ctx.ellipse(px,py+7,17*scale,5*scale,0,0,Math.PI*2);ctx.fill();ctx.restore();}
 function portraitEnemy(e){return e.kind==='dragon'?{x:240+(e.y-310)*2,y:460-(e.x-164)*.53}:battleProject(e);}
 function drawWorldBoss(e,x,y){
+ if(!e.bossEntryShown){e.bossEntryShown=true;game.featureAnnouncement={title:'☠ WORLD BOSS',detail:'HOLD THE LINE!',until:Date.now()+2700};}
+
  if(game.enemies.filter(u=>u.hp>0&&!u.worldBoss).length>0){ctx.save();ctx.globalAlpha=.22;ctx.fillStyle='#f04d9b';ctx.fillRect(0,0,480,854);ctx.restore();}
  ctx.save();const lightning=.3+.25*Math.sin(game.time*12);ctx.globalAlpha=lightning;ctx.strokeStyle='#efb2fa';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-72,y-108);ctx.lineTo(x-40,y-70);ctx.lineTo(x-58,y-46);ctx.lineTo(x-19,y-12);ctx.stroke();ctx.restore();
  ctx.save();ctx.globalAlpha=.1+.08*Math.sin(game.time*5);ctx.fillStyle='#ff4c85';ctx.beginPath();ctx.arc(x,y-30,120,0,Math.PI*2);ctx.fill();ctx.restore();
@@ -883,6 +885,7 @@ function drawEngagementHud(){
 }
 
 function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
+function heroAuraPower(lv){return Math.min(1,Math.max(0,((lv||1)-1)/35));}
 function heroScore(p,side){
  const base=(p.joins||0)*5+(p.likes||0)+(p.giftPoints||0);
  return side==='siege'?base+Math.floor((p.siegeDamage||0)/5)+(p.siegeKOs||0)*50+(p.hostile||0)*20:base+Math.floor((p.damage||0)/5)+(p.kills||0)*25+(p.support||0)*12;
@@ -904,6 +907,7 @@ function drawLiveLeaderboards(){
  }
 }
 function drawHeroEquipment(x,y,lv,member,side,top){
+ const aura=heroAuraPower(lv);if(aura>.05){ctx.save();ctx.globalAlpha=.08+aura*.16;const glow=ctx.createRadialGradient(x,y-23,3,x,y-23,31+aura*18);glow.addColorStop(0,side==='sieger'?'#ff5874':'#77eafa');glow.addColorStop(1,'#00000000');ctx.fillStyle=glow;ctx.fillRect(x-52,y-75,104,100);ctx.restore();}
  // Subtle animated team halo for distinguishable sides.
  ctx.save();ctx.globalAlpha=.12+.06*Math.sin(game.time*3+x*.04);ctx.fillStyle=side==='sieger'?'#f85b78':'#65d9ef';ctx.beginPath();ctx.ellipse(x,y-12,19,26,0,0,Math.PI*2);ctx.fill();ctx.restore();
  const tier=heroTier(lv),enemy=side==='sieger',c=enemy?['#7e3349','#ac4253','#d45358','#e07768','#ff8f73'][tier]:['#8caaad','#6caec7','#6d9dff','#dec479','#ffe48d'][tier];
@@ -1020,6 +1024,8 @@ function cinematicBackground(vertical,t,theme,index){
  const m=moods[index];
  sky.addColorStop(0,m[0]);sky.addColorStop(.4,m[1]);sky.addColorStop(1,m[2]);
  ctx.fillStyle=sky;ctx.fillRect(0,0,480,height);
+ // Slowly drifting clouds and distant haze.
+ for(let c=0;c<5;c++){const cx=((c*131+t*(2+c*.5))%660)-90,cy=65+(c%3)*56;ctx.save();ctx.globalAlpha=.045+(c%2)*.025;ctx.fillStyle='#cedaee';ctx.beginPath();ctx.ellipse(cx,cy,65+c*7,17+c*3,0,0,Math.PI*2);ctx.fill();ctx.restore();}
  // Layered distant ridges and volumetric haze give depth without masking units.
  for(let layer=0;layer<3;layer++){
   const y=horizon-72+layer*41,shift=Math.sin(t*(.045+layer*.015))*8;
@@ -1111,6 +1117,7 @@ function drawReadableArcher(x,y,t,enemy=true){
  ctx.save();ctx.translate(x,y);
  const breath=Math.sin(t*4+x*.02)*1.4;ctx.translate(0,breath);
  const shade=enemy?'#542e43':'#3e6b7f',trim=enemy?'#e3a075':'#9de6de';
+ const drawAge=((t*1.7+x*.02)%2),drawn=drawAge<1.1?drawAge/1.1:0;
  ctx.fillStyle='#10101cb0';ctx.beginPath();ctx.ellipse(0,7,21,5,0,0,Math.PI*2);ctx.fill();
  poly([[-13,-35],[1,-43],[15,-34],[18,5],[-18,5]],shade);
  poly([[-12,-30],[0,-39],[12,-30],[7,-18],[-7,-18]],'#806779');
@@ -1118,8 +1125,8 @@ function drawReadableArcher(x,y,t,enemy=true){
  rect(-9,-17,18,20,'#785565');rect(-5,-15,10,15,'#ac8591');rect(-8,3,6,9,'#302c3e');rect(3,3,6,9,'#302c3e');
  rect(12,-26,9,23,'#473a38');for(let j=0;j<3;j++){rect(14+j*2,-32+j*3,2,10,'#d7c08f');}
  ctx.strokeStyle=trim;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-18,-30);ctx.quadraticCurveTo(-32,-15,-18,5);ctx.stroke();
- ctx.strokeStyle='#f9e7c5';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-18,-30);ctx.lineTo(-18,5);ctx.stroke();
- rect(-26,-15,32,2,'#e4d5a3');poly([[8,-14],[0,-19],[0,-10]],'#fff2c9');
+ ctx.strokeStyle='#f9e7c5';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-18,-30);ctx.lineTo(-18+drawn*10,-12);ctx.lineTo(-18,5);ctx.stroke();
+ rect(-26+drawn*8,-15,32,2,'#e4d5a3');poly([[8,-14],[0,-19],[0,-10]],'#fff2c9');
  ctx.restore();
 }
 
