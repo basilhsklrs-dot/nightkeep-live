@@ -439,20 +439,22 @@ function update(dt){
   const lane=Math.max(359,Math.min(384,m.homeLane||(m.homeLane=360+(j%5)*5)));
   if(!foe){
    m.combatState='guard';
-   const mx=m.ranged?185:237,my=lane;
+   const mx=m.ranged?166:237,my=lane;
    m.x+=Math.max(-30*dt,Math.min(30*dt,mx-m.x));m.y+=Math.max(-16*dt,Math.min(16*dt,my-m.y));
    continue;
   }
-  const desiredX=m.ranged?188:Math.max(191,Math.min(280,foe.x-19)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
+  const desiredX=m.ranged?166:Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
   const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
   const prevX=m.x;
   m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
   m.y=walk(desiredY,m.y,16*dt);
   m.facing=foe.x>=m.x?1:-1;
   const range=Math.hypot(foe.x-m.x,(foe.y-m.y)*1.65);
-  const canStrike=range<=(m.ranged?174:31);
+  const canStrike=range<=(m.ranged?210:34);
   m.combatState=!canStrike?'advance':m.cooldown>0?'guard':'windup';
   if(!canStrike||m.cooldown>0)continue;
+  // Defensive block opportunity reduces but does not negate incoming close combat.
+  m.blockUntil=game.time+.28;
   // Attack animation begins before the impact, then resolves in a later tick.
   if(!m.attackWindup){
    m.attackWindup=m.ranged?.30:.20;m.pendingTarget=foe;m.cooldown=m.ranged?2.7:1.55;
@@ -515,7 +517,7 @@ function update(dt){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(7,(e.damage||15)*.3));guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
+    if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(3,(e.damage||15)*.3)*(guard.blockUntil>game.time?.65:1));guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
     continue;
    }
   }
@@ -551,11 +553,11 @@ function update(dt){
    }
   }
   // Archers stop and fire from long range; hero health is independent of castle HP.
-  if(e.ranged&&e.x>335){e.x-=e.speed*dt;continue;}
+  if(e.ranged&&e.x>350){e.x-=e.speed*dt;continue;}
   if(e.ranged){
    e.projectileCooldown=(e.projectileCooldown??1.5)-dt;
    if(e.projectileCooldown<=0){
-    e.projectileCooldown=2.5;e.lastAttackAt=game.time;
+    e.projectileCooldown=2.5;e.lastAttackAt=game.time;e.combatState='release';
     const targets=game.defenders.filter(d=>d.hp>0);
     const defender=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;
     const npc=!defender?(game.militia||[]).find(m=>m.hp>0):null;
@@ -730,6 +732,7 @@ function drawLandscape(){
 // simulation, damage, timing and TikTok events are shared with the landscape view.
 function portraitEnemy(e){return{x:e.kind==='dragon'?240+(e.y-310)*2:122+(e.y-346)*4.5,y:460-(e.x-164)*.53};}
 function drawWorldBoss(e,x,y){
+ if(game.enemies.filter(u=>u.hp>0&&!u.worldBoss).length>0){ctx.save();ctx.globalAlpha=.22;ctx.fillStyle='#f04d9b';ctx.fillRect(0,0,480,854);ctx.restore();}
  ctx.save();const lightning=.3+.25*Math.sin(game.time*12);ctx.globalAlpha=lightning;ctx.strokeStyle='#efb2fa';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-72,y-108);ctx.lineTo(x-40,y-70);ctx.lineTo(x-58,y-46);ctx.lineTo(x-19,y-12);ctx.stroke();ctx.restore();
  ctx.save();ctx.globalAlpha=.1+.08*Math.sin(game.time*5);ctx.fillStyle='#ff4c85';ctx.beginPath();ctx.arc(x,y-30,120,0,Math.PI*2);ctx.fill();ctx.restore();
  const pulse=1+.06*Math.sin(game.time*4);
@@ -1022,6 +1025,7 @@ function cinematicFloor(vertical,t,index){
  g.addColorStop(0,index===1?'#607985':index===2?'#66453c':'#35494a');
  g.addColorStop(1,index===1?'#263d53':index===2?'#241c26':'#151d28');
  ctx.fillStyle=g;ctx.fillRect(0,y,480,deep-y);
+ const torchGlow=ctx.createRadialGradient(82,y+100,8,82,y+100,175);torchGlow.addColorStop(0,'#ffad5940');torchGlow.addColorStop(1,'#ffad5900');ctx.fillStyle=torchGlow;ctx.fillRect(0,y,275,deep-y);
  // Perspective floor lines are subtle, fixed and never a gameplay target.
  ctx.strokeStyle='#cbd5df17';ctx.lineWidth=1;
  const vanish={x:240,y:y+9};
@@ -1131,7 +1135,7 @@ function drawPortrait(){
   const step=dist>0?Math.min(1,maxMove/dist):1;
   m.renderX+=vx*step;m.renderY+=vy*step;
   const px=m.renderX,py=m.renderY;
-  ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
+  ctx.save();ctx.translate(px,py);const depthScale=.43+Math.max(0,Math.min(.13,(py-400)/1200));ctx.scale(depthScale,depthScale);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),(m.staggerUntil||0)>t?0.08:100);
   ctx.restore();
