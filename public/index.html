@@ -950,7 +950,7 @@ function drawPortrait(){
  
  // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
  rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
- text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+game.defenders.length,240,665,'#e7f3e8',17,'center');
+ text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+((game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>Date.now()).length+(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>Date.now()).length),240,665,'#e7f3e8',17,'center');
  text('LIVE BATTLE · TAP ❤️ TO LEVEL UP',240,692,'#f5d49a',13,'center');
  if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
  ctx.restore();
