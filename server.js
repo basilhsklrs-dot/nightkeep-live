@@ -157,6 +157,21 @@ export async function startServer(env = process.env) {
       }
       return;
     }
+    // NIGHTKEEP 2.0: isolated combat laboratory and ES module, no LIVE engine switch.
+    if (req.method === 'GET' && (path === '/combat-lab' || path === '/engine/combat-engine.js')) {
+      try {
+        const src = path === '/combat-lab'
+          ? new URL('./public/combat-lab.html', import.meta.url)
+          : new URL('./engine/combat-engine.js', import.meta.url);
+        const body = await readFile(src);
+        res.writeHead(200, { 'Content-Type': path === '/combat-lab' ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(body);
+      } catch {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Combat Lab unavailable');
+      }
+      return;
+    }
     res.writeHead(404); res.end('Not found');
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048, perMessageDeflate: false });

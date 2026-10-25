@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHTKEEP 2 Combat Lab</title>
+<style>body{background:#111827;color:#f1efe9;font:14px system-ui;margin:0;padding:16px}main{max-width:650px;margin:auto}canvas{background:linear-gradient(#1b2838,#233029);width:100%;aspect-ratio:480/640;border:1px solid #516078}button{padding:12px 20px;background:#26435e;color:white;border:1px solid #81b6df;border-radius:8px}.stats{padding:14px;background:#212b3b;margin:10px 0;white-space:pre-wrap}</style>
+<main><h1>NIGHTKEEP 2.0 — Combat Lab</h1><p>Isolated simulation. Not connected to live audience, gifts or production castle.</p><button id="restart">Restart 24-unit stress test</button><div class="stats" id="stats"></div><canvas id="battle" width="480" height="640"></canvas></main>
+<script type="module">
+import {stepCombat} from '/engine/combat-engine.js';
+const cv=document.getElementById('battle'),ctx=cv.getContext('2d');
+let state,last=performance.now(),hits=0,deaths=0;
+function init(){const units=[];for(let i=0;i<12;i++)for(const team of ['defender','sieger']){
+  units.push({id:team+'-'+i,team,x:team==='defender'?110+(i%3)*8:355-(i%3)*8,
+   y:341+(i%12)*3, hp:100,damage:11,range:i%6===0?115:31,
+   ranged:i%6===0,aggroRange:400,speed:30,cooldown:0,windup:0,critChance:.1});
+ }state={time:0,units};hits=0;deaths=0;}init();
+document.getElementById('restart').onclick=init;
+function frame(now){
+ const dt=Math.min(.05,(now-last)/1000);last=now;
+ const events=stepCombat(state,dt);for(const e of events){if(e.type==='impact')hits++;if(e.type==='death')deaths++;}
+ ctx.clearRect(0,0,480,640);
+ ctx.fillStyle='#657363';ctx.fillRect(0,300,480,180);
+ for(const u of [...state.units].sort((a,b)=>a.y-b.y)){
+  if(u.hp<=0)continue;
+  const x=40+u.x*.85,y=130+(u.y-310)*5.6;
+  ctx.fillStyle='#10151dbb';ctx.beginPath();ctx.ellipse(x,y+14,11,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=u.team==='defender'?'#77bce5':'#e98091';
+  ctx.fillRect(x-8,y-28,16,28);ctx.fillStyle='#e2e2db';ctx.fillRect(x-6,y-37,12,9);
+  ctx.fillStyle=u.ranged?'#f9d97e':'#293040';ctx.fillRect(x-12,y-12,24,3);
+  ctx.fillStyle='#111827';ctx.fillRect(x-13,y-46,26,4);ctx.fillStyle='#a4e9b1';ctx.fillRect(x-13,y-46,26*u.hp/100,4);
+ }
+ const alive=state.units.filter(u=>u.hp>0);
+ document.getElementById('stats').textContent='Time '+state.time.toFixed(1)+'s | Units '+alive.length+'/24 | Hits '+hits+' | KOs '+deaths+' | FPS '+Math.round(1/Math.max(dt,.001))+'\nDefenders '+alive.filter(u=>u.team==='defender').length+' / Siegers '+alive.filter(u=>u.team==='sieger').length;
+ requestAnimationFrame(frame);
+}requestAnimationFrame(frame);
+</script></html>
