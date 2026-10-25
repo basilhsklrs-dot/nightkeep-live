@@ -444,7 +444,7 @@ function update(dt){
   const alive=game.enemies.filter(e=>e.hp>0&&!e.worldBoss);
   // Keep a target until it dies: no every-frame random target switches.
   if(!m.target||m.target.hp<=0||!game.enemies.includes(m.target)){
-   m.target=alive.filter(e=>!e.ranged).sort((a,b)=>Math.hypot(a.x-m.x,(a.y-m.y)*2)-Math.hypot(b.x-m.x,(b.y-m.y)*2))[0]||alive[0]||null;
+   m.target=(globalThis.NKCombat2?.nearestTarget(m,alive.filter(e=>!e.ranged))||globalThis.NKCombat2?.nearestTarget(m,alive)||alive.filter(e=>!e.ranged).sort((a,b)=>Math.hypot(a.x-m.x,(a.y-m.y)*2)-Math.hypot(b.x-m.x,(b.y-m.y)*2))[0]||alive[0]||null);
   }
   const foe=m.target;
   const lane=Math.max(359,Math.min(384,m.homeLane||(m.homeLane=360+(j%5)*5)));
@@ -609,6 +609,8 @@ function update(dt){
    // retain their own rear-line/retreat logic; do not push melee back to spawn.
   }
  }
+ // NIGHTKEEP 2 separation applies to real world positions, keeping the legacy damage resolver single-owner.
+ if(globalThis.NKCombat2){globalThis.NKCombat2.separate(nkFront.filter(v=>!v.siegerHero),dt,{radius:12,strength:8,bounds:[337,389]});}
  // Resolve enemy arrows ON IMPACT, not when an archer starts the shot.
  game.siegeArrows||=[];
  for(const arrow of game.siegeArrows){
@@ -1555,4 +1557,5 @@ sprite=function(data,x,y,scale,palette,flip=false){
 requestAnimationFrame(frame);
 </script>
 <script src="/champion.js" defer></script>
+<script type="module">import * as kernel from "/engine/combat-engine.js";globalThis.NKCombat2=kernel;</script>
 </body></html>
