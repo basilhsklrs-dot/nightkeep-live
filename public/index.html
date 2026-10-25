@@ -253,7 +253,23 @@ function applyEvent(e){
   if(!active)applyEvent({type:'join',user:id,displayName:e.displayName});
  }
  if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger'){game.defenders=game.defenders.filter(d=>d.name!==e.user);summonSieger(e.user);}else{game.enemies=game.enemies.filter(v=>!(v.siegerHero&&v.user===e.user));addDefender(e.user);}eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
- if(e.type==='join'){ensureViewerFighter(e.user);return;}
+ if(e.type==='join'){
+  const id=String(e.user||'viewer').slice(0,64);
+  const previous=game.heroes?.[id];
+  ensureViewerFighter(id);
+  // LIVE overlay welcome: no extra API calls or chat-posting permissions required.
+  // Limit repeated join notices; rejoin packets can be frequent.
+  window.nightkeepWelcomeAt ||= new Map();
+  const now=Date.now(),last=window.nightkeepWelcomeAt.get(id)||0;
+  if(now-last>120000){
+   window.nightkeepWelcomeAt.set(id,now);
+   if(window.nightkeepWelcomeAt.size>500)window.nightkeepWelcomeAt.delete(window.nightkeepWelcomeAt.keys().next().value);
+   const name=String(e.displayName||id).slice(0,32);
+   eventBanner={user:name,title:'⚔ WELCOME TO NIGHTKEEP! 🛡',until:now+4600,color:'#8fe2ad'};
+   feed(name,'Welcome! You joined the battle!','#8fe2ad');
+  }
+  return;
+ }
  if(e.type==='like'){game.engagement ||= {likes:0,milestone:0,bossAt:game.time+180,defenseScore:0,siegeScore:0};game.engagement.likes+=count;game.engagement.defenseScore+=((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.siegeScore=(game.engagement.siegeScore||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.engagement.clashDefense=(game.engagement.clashDefense||0)+((game.teams||{})[e.user]==='sieger'?0:count);game.engagement.clashSiege=(game.engagement.clashSiege||0)+((game.teams||{})[e.user]==='sieger'?count:0);game.boost=Math.min(400,game.boost+((game.teams||{})[e.user]==='sieger'?0:count*(game.engagement?.lastStandActive?1.2:.6)));game.siegeBoost=Math.min(400,(game.siegeBoost||0)+((game.teams||{})[e.user]==='sieger'?count*(game.engagement?.lastStandActive?1.2:.6):0));player(e.user).likes+=count;game.teams||={};game.teams[e.user]||='defender';grantXp(e.user,count*.3);if((game.teams||{})[e.user]==='sieger')summonSieger(e.user);if(Date.now()>eventBanner.until)eventBanner={user:e.user||'viewers',title:`+${count} LIKES → ATTACK ×${(1+game.boost/100).toFixed(2)}`,until:Date.now()+2200,color:'#f5cc73'};return;}
  if(e.type==='follow'){const followedHero=heroRecord(e.user);followedHero.following=true;followedHero.powerBonus=Math.max(40,followedHero.powerBonus||0);grantXp(e.user,30);game.teams||={};game.teams[e.user]||='defender';addDefender(e.user);if(game.teams[e.user]==='sieger')summonSieger(e.user);eventBanner={user:e.user,title:'FOLLOW BONUS · HERO POWER +40',until:Date.now()+5500,color:'#8fe2ad'};feed(displayHeroName(e.user),'joined '+(game.teams[e.user]==='sieger'?'siegers':'defenders'),'#8fe2ad');beep('follow');return;}
  if(e.type==='member'){player(e.user).giftPoints=(player(e.user).giftPoints||0)+100;grantXp(e.user,100,true);eventBanner={user:e.user,title:'❤️ MEMBER HEART — ELITE BUFF',until:Date.now()+6000,color:'#ff8cc8'};return;}
