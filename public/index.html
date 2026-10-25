@@ -466,6 +466,22 @@ function update(dt){
   if(e.hp<=0){game.kills++;if(e.worldBoss){noteLegend(e.lastHitOwner,'BOSS SLAYER',1);game.engagement||={};game.engagement.bossActive=false;game.engagement.bossHasSpawned=false;game.engagement.bossWins=(game.engagement.bossWins||0)+1;game.hp=Math.min(1000,game.hp+90);game.featureAnnouncement={title:'BOSS RAID VICTORY!',detail:'DEFENDERS +90 CASTLE HP',until:Date.now()+2500};}const owner=e.lastHitOwner;if(owner&&owner!=='Φρουρά'){player(owner).kills++;const hero=heroRecord(owner);if(e.siegerHero&&hero.revengeTarget===e.user&&Date.now()<(hero.revengeUntil||0)){hero.revengeTarget='';grantXp(owner,75);game.featureAnnouncement={title:'⚔ REVENGE COMPLETE!',detail:displayHeroName(owner).slice(0,18)+' +75 XP',until:Date.now()+2200};noteLegend(owner,'REVENGE',75);}const defender=game.defenders.find(d=>d.name===owner);if(defender){defender.kills=(defender.kills||0)+1;heroRecord(owner).kills=defender.kills;}}pop(e.x,e.y-7,e.kind==='dragon'?'#d891b0':'#9ab99b',e.kind==='dragon'?40:7);continue;}
   e.phase+=dt*5;
   // Enemy melee units clash with summoned defenders before breaching the castle.
+  // All hostile melee NPCs may hit real defender viewers; not only the castle.
+  if(!e.ranged&&!e.siegerHero&&!e.worldBoss&&e.x<=247){
+   const living=game.defenders.filter(d=>d.hp>0);
+   if(living.length){
+    e.npcHeroCooldown=(e.npcHeroCooldown||0)-dt;
+    if(e.npcHeroCooldown<=0){
+     e.npcHeroCooldown=1.7;
+     const victim=living[Math.floor(Math.random()*living.length)];
+     const dmg=Math.max(5,Math.min(24,(e.damage||12)*.45));
+     victim.hp=Math.max(0,victim.hp-(game.shield>0?dmg*.35:dmg));
+     victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.ceil(dmg);
+     e.lastAttackAt=game.time;
+     if(victim.hp<=0)knockoutDefender(victim);
+    }
+   }
+  }
   if(!e.ranged&&!e.siegerHero&&!e.worldBoss){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
@@ -475,6 +491,8 @@ function update(dt){
    }
   }
   // Player siegers duel defenders before reaching the castle. A defender can be KO'd, healed by likes, and keeps XP.
+  // Sieger viewer archers target real defender viewers OR garrison NPCs.
+  // Ranged attacks are handled below, melee has its own close-quarters branch.
   if(e.siegerHero&&!e.ranged){
    const alive=game.defenders.filter(d=>d.hp>0);
    if(alive.length&&e.x<=335){
