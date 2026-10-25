@@ -89,12 +89,12 @@ export async function startServer(env = process.env) {
   const chatTargetIdc = String(env.TIKTOK_TARGET_IDC || '');
   const chatReady = chatEnabled && Boolean(env.EULER_API_KEY && chatSessionId && chatTargetIdc);
   const chatMessages = [
-    '⚔️ You are automatically in the battle! Watch your hero fight!',
-    '🧡 FOLLOW for extra power and faster attacks!',
-    '❤️ TAP TAP to gain XP and keep your hero alive!',
-    '🛡️ TYPE 1 for DEFENDERS · ⚔️ TYPE 2 for SIEGERS!',
-    '🎁 Gifts unlock special powers and help your hero level up!',
-    '🏆 Fight, earn points and reach the TOP 3!'
+    '🤖 WELCOME! Your robot enters the arena automatically. Find your name!',
+    '❤️ TAP TAP to charge your robot, earn XP and unlock special attacks!',
+    '🧡 FOLLOW to give your robot an extra shield and keep fighting!',
+    '💗 MEMBER HEART: show your support and power up the LIVE battle!',
+    '🎁 SEND A GIFT to unlock shields, boosts and spectacular attacks!',
+    '🏆 Watch your robot battle! Likes and gifts help you climb the leaderboard!'
   ];
   let chatIndex = 0, chatSending = false, chatFailures = 0, chatPaused = false;
   const overrides = JSON.parse(env.GIFT_ID_MAP || '{}');
