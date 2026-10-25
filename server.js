@@ -140,7 +140,7 @@ export async function startServer(env = process.env) {
       catch { res.writeHead(500); res.end('Frontend missing'); }
       return;
     }
-    if (req.method === 'GET' && path === '/three.module.js') {try {const data=await readFile(new URL('./node_modules/three/build/three.module.js',import.meta.url));res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data);}catch{res.writeHead(503);res.end('3D engine unavailable');}return;}
+    if (req.method === 'GET' && (path === '/three.module.js' || path === '/three.core.js')) {try {const data=await readFile(new URL('./node_modules/three/build/'+path.slice(1),import.meta.url));res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data);}catch{res.writeHead(503);res.end('3D engine unavailable');}return;}
     if (req.method === 'GET' && path === '/bumper.js') { try { const data=await readFile(new URL('./public/bumper.js',import.meta.url)); res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data); } catch {res.writeHead(404);res.end('Not found');}return; }
     if (req.method === 'GET' && (path === '/champion.js' || path === '/assets/nightkeep-characters.svg' || path === '/assets/nightkeep-action-frames.svg')) {
       try {
