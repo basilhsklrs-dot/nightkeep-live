@@ -425,27 +425,28 @@ function update(dt){
  game.militiaSpawn=(game.militiaSpawn||0)-dt;
  if(game.militiaSpawn<=0&&game.militia.length<7){
   const ranged=Math.random()<.38;
-  game.militia.push({x:151,y:338+Math.random()*28,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
+  game.militia.push({x:151,y:360+Math.random()*18,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
   game.militiaSpawn=5.5;
  }
  for(let j=0;j<game.militia.length;j++){
   const m=game.militia[j];m.cooldown-=dt*speed;m.phase+=dt*6;
-  // Unique target selection distributes melee across lanes instead of a single blob.
-  const foes=game.enemies.filter(e=>e.hp>0&&!e.worldBoss&&!e.ranged);
-  let enemy=foes.find(e=>e===m.target&&e.hp>0);
-  if(!enemy){enemy=foes.length?foes.reduce((best,e)=>Math.abs(e.x-m.x)+Math.abs(e.y-m.y)*.8<Math.abs(best.x-m.x)+Math.abs(best.y-m.y)*.8?e:best,foes[0]):game.enemies.find(e=>e.hp>0&&!e.worldBoss);m.target=enemy||null;}
-  if(!enemy){m.target=null;m.x+=(151-m.x)*Math.min(1,dt*1.5);m.y+=(350+(j%4)*6-m.y)*Math.min(1,dt*1.5);continue;}
-  const laneDelta=enemy.y-m.y, dx=enemy.x-m.x,reach=m.ranged?145:22;
-  if(!m.ranged){
-   const slot=(j%4-1.5)*7;const desiredX=enemy.x-reach-slot*.18;
-   if(Math.abs(desiredX-m.x)>3)m.x+=Math.sign(desiredX-m.x)*Math.min(Math.abs(desiredX-m.x),33*dt);
-   if(Math.abs(laneDelta)>3)m.y+=Math.sign(laneDelta)*Math.min(Math.abs(laneDelta),19*dt);
-  }else if(m.x<186)m.x=Math.min(186,m.x+18*dt);
-  if(Math.abs(enemy.x-m.x)>reach+10||Math.abs(enemy.y-m.y)>(m.ranged?75:24)||m.cooldown>0)continue;
-  m.cooldown=m.ranged?2.8:1.45;m.hitAt=game.time;m.hitTargetX=enemy.x;m.hitTargetY=enemy.y;
+  // Permanent side-specific lines: castle -> melee frontline -> siege line.
+  const candidates=game.enemies.filter(e=>e.hp>0&&!e.ranged&&!e.worldBoss);
+  const near=candidates.sort((a,b)=>Math.abs(a.y-m.y)-Math.abs(b.y-m.y))[0];
+  const lane=Math.max(359,Math.min(384,m.homeLane||(m.homeLane=360+(j%5)*5)));
+  const desiredX=m.ranged?184:near?Math.max(196,Math.min(267,near.x-21)):236;
+  const desiredY=m.ranged?lane:near?Math.max(359,Math.min(384,near.y)):lane;
+  const step=(target,current,max)=>current+Math.max(-max,Math.min(max,target-current));
+  m.x=step(desiredX,m.x,(m.ranged?20:37)*dt);
+  m.y=step(desiredY,m.y,14*dt);
+  m.target=near||null;
+  if(!near||m.cooldown>0)continue;
+  const distance=Math.hypot(near.x-m.x,(near.y-m.y)*1.6);
+  if(distance>(m.ranged?174:36))continue;
+  m.hitAt=game.time;m.cooldown=m.ranged?2.8:1.45;
   const damage=m.ranged?6:9;
-  if(m.ranged){if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:enemy,damage,owner:'Φρουρά',color:'#b8e9fc',life:2});}
-  else {enemy.hp-=damage;enemy.lastHitOwner='Φρουρά';enemy.lastHitAt=game.time;enemy.lastHitDamage=damage;enemy.attackPulse=game.time;pop(enemy.x,enemy.y-10,'#cfe7f8',4);}
+  if(m.ranged){if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:near,damage,owner:'Φρουρά',color:'#b8e9fc',life:2});}
+  else {near.hp-=damage;near.lastHitOwner='Φρουρά';near.lastHitAt=game.time;near.lastHitDamage=damage;near.attackPulse=game.time;pop(near.x,near.y-10,'#cfe7f8',4);}
  }
  game.militia=game.militia.filter(m=>m.hp>0);
 
@@ -466,7 +467,7 @@ function update(dt){
   e.phase+=dt*5;
   // Enemy melee units clash with summoned defenders before breaching the castle.
   if(!e.ranged&&!e.siegerHero&&!e.worldBoss){
-   const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<31&&Math.abs(m.y-e.y)<28);
+   const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
     if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(7,(e.damage||15)*.3));e.lastAttackAt=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
@@ -494,7 +495,7 @@ function update(dt){
    }
   }
   // Archers stop and fire from long range; hero health is independent of castle HP.
-  if(e.ranged&&e.x>265){e.x-=e.speed*dt;continue;}
+  if(e.ranged&&e.x>335){e.x-=e.speed*dt;continue;}
   if(e.ranged){e.lastAttackAt=game.time;e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));if(victim.hp<=0)knockoutDefender(victim);game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else{const defender=game.militia.find(m=>m.hp>0);if(defender)defender.hp=Math.max(0,defender.hp-12);else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);}game.rangedBursts||=[];game.rangedBursts.push({at:game.time,from:e.y,archer:true});beep('shoot');}continue;}
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
