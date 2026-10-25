@@ -512,6 +512,15 @@ function update(dt){
     continue;
    }
   }
+  // Real sieger melee heroes also engage defender NPCs, not only viewer heroes.
+  if(e.siegerHero&&!e.ranged){
+   const guard=game.militia.find(m=>m.hp>0&&!m.ranged&&Math.abs(m.y-e.y)<30);
+   if(guard&&e.x<=guard.x+38){
+    e.attack=(e.attack||0)-dt;
+    if(e.attack<=0){e.attack=1.35;e.lastAttackAt=game.time;const damage=Math.max(10,15+(e.siegerLevel||1)*2);guard.hp=Math.max(0,guard.hp-damage);player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+damage;pop(guard.x,guard.y-12,'#f5acac',5);}
+    continue;
+   }
+  }
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>335){e.x-=e.speed*dt;continue;}
   if(e.ranged){e.lastAttackAt=game.time;e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));if(victim.hp<=0)knockoutDefender(victim);game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else{const defender=game.militia.find(m=>m.hp>0);if(defender)defender.hp=Math.max(0,defender.hp-12);else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);}game.rangedBursts||=[];game.rangedBursts.push({at:game.time,from:e.y,archer:true});beep('shoot');}continue;}
