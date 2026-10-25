@@ -46,7 +46,7 @@ export class Normalizer {
     }
     const user = username(d);
     const displayName = clean(d.user?.nickname || d.user?.displayName || d.nickname || user, 64) || user;
-    if (type === 'chat'){const command=clean(d.content??d.comment??d.text??d.message??'',64).trim().toLowerCase();if(/^(1|2|defender|defend|sieger|siege|attacker|attack|team defender|team sieger)$/.test(command))return {type:'team',user,displayName,team:command==='2'||/sieg|attack/.test(command)?'sieger':'defender'};return null;}
+    if (type === 'chat'){const command=clean(d.content??d.comment??d.text??d.message??'',64).trim().toLowerCase();if(/^(1|2|defender|defend|sieger|siege|attacker|attack|team defender|team sieger)$/.test(command))return {type:'team',user,displayName,team:command==='2'||/sieg|attack/.test(command)?'sieger':'defender'};return {type:'join',user,displayName};}
     if (type === 'join') return {type:'join',user,displayName};
     if (type === 'like') return { type: 'like', user, displayName, count: positive(d.count ?? d.likeCount) };
     if (type === 'follow') return { type: 'follow', user, displayName, count: 1 };
@@ -194,7 +194,7 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
       for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['ROOM_USER','join'],['CHAT','chat']]) {
-        current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));emit(event); });
+        current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));if(event?.type==='join')console.info(JSON.stringify({event:'viewer_join_received',user:event.user,source:type}));emit(event); });
       }
       let deadline;
       const pending = current.connect();
