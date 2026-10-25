@@ -1544,7 +1544,7 @@ drawReadableArcher=function(x,y,t,enemy=true,unit=null){
  const age=unit&&Number.isFinite(unit.lastAttackAt)?t-unit.lastAttackAt:100;
  const firing=age>=0&&age<.25;
  const windup=unit&&unit.attackWindup>0;
- const mode=firing?'attack':windup?'block':'idle';
+ const mode=firing?'attack':windup?'block':unit?.combatState==='advance'?'walk':'idle';
  if(!nkArt(enemy?3:1,x,y,NK_NPC_SCALE,mode,enemy?-1:1))
   return nkOldArcher(x,y,t,enemy);
 };
@@ -1554,7 +1554,7 @@ drawEnemy=function(e,x=e.x,y=e.y,portraitView=false){
  const idx=e.personalChampion?7:e.worldBoss?6:e.siegerHero&&e.siegerLevel>=8?5:e.ranged?3:2;
  const attacking=e.lastAttackAt!=null&&game.time-e.lastAttackAt<.24;
  const hit=e.lastHitAt!=null&&game.time-e.lastHitAt<.22;
- if(!nkArt(idx,x,y,e.worldBoss?1.12:e.personalChampion?.68:e.siegerHero?NK_PLAYER_SCALE:e.kind==='mini'?.70:NK_NPC_SCALE,attacking?'attack':hit?'hit':'walk',-1))
+ if(!nkArt(idx,x,y,e.worldBoss?1.12:e.personalChampion?.68:e.siegerHero?NK_PLAYER_SCALE:e.kind==='mini'?.70:NK_NPC_SCALE,hit?'hit':attacking?'attack':e.combatState==='release'?'attack':(e.staggerUntil||0)>game.time?'hit':(e.x>170?'walk':'block'),-1))
   return nkOldEnemy(e,x,y,portraitView);
 };
 const nkOldWorldBoss=drawWorldBoss;
