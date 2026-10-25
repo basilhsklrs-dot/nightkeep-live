@@ -231,9 +231,10 @@ function ensureViewerFighter(user){
  const nD=(game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>now).length,nS=(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>now).length;
  const team=game.teams[id]||(nD===nS?(Math.random()<.5?'defender':'sieger'):(nD<nS?'defender':'sieger'));
  game.teams[id]=team;h.team=team;h.knockedOut=false;h.activeUntil=now+90000;
- if(team==='sieger'){summonSieger(id);const e=game.enemies.find(x=>x.siegerHero&&x.user===id);if(e){e.activeUntil=h.activeUntil=now+90000;e.x=Math.max(e.x,460);}}
+ if(team==='sieger'){if(game.enemies.length>=MAX_ENEMIES){const slot=game.enemies.findIndex(e=>!e.siegerHero&&!e.worldBoss);if(slot>=0)game.enemies.splice(slot,1);}summonSieger(id);const e=game.enemies.find(x=>x.siegerHero&&x.user===id);if(e){e.activeUntil=h.activeUntil=now+90000;e.x=Math.max(e.x,460);}}
  else {const d=addDefender(id,90000);if(d)d.activeUntil=h.activeUntil=now+90000;}
  feed(displayHeroName(id),'AUTO JOIN '+team.toUpperCase(),'#9fe4cc');
+ eventBanner={user:displayHeroName(id),title:team==='sieger'?'⚔ AUTO JOINED SIEGERS':'🛡 AUTO JOINED DEFENDERS',until:now+4400,color:team==='sieger'?'#ffb6cb':'#a8eac9'};
  return true;
 }
 function applyEvent(e){
