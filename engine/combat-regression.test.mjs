@@ -18,7 +18,7 @@ test('melee impacts once per windup',()=>{
  assert.equal(hits,1);assert.equal(b.hp,89);
 });
 test('projectile damages only on impact',()=>{
- const a=unit('a','defender',0,350,{ranged:true,range:220,projectileSpeed:30}),b=unit('b','sieger',180,350,{speed:0,cooldown:999});
+ const a=unit('a','defender',0,350,{ranged:true,range:220,projectileSpeed:100}),b=unit('b','sieger',180,350,{speed:0,cooldown:999});
  const state={time:0,units:[a,b]};let fired=false;
  for(let i=0;i<20;i++){const ev=stepCombat(state,1/30,{rng:()=>.99});if(ev.some(e=>e.type==='projectile')){fired=true;break;}}
  assert.ok(fired);assert.equal(b.hp,100);
