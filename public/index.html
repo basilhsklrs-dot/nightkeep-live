@@ -176,7 +176,7 @@ function grantXp(user,amount,member=false){
 function player(name){
  const user=String(name||'viewer').slice(0,64);game.players ||= [];
  let p=game.players.find(p=>p.user===user);
- if(!p){if(game.players.length>=500)game.players.shift();p={user,displayName:(game.displayNames||{})[user]||'',likes:0,kills:0,support:0,hostile:0};game.players.push(p)}
+ if(!p){if(game.players.length>=500)game.players.shift();p={user,displayName:(game.displayNames||{})[user]||'',likes:0,kills:0,support:0,hostile:0,damage:0,siegeDamage:0,siegeKOs:0,joins:0};game.players.push(p)}
  return p;
 }
 const enemyDefaults={fast:'goblin',mini:'armored',dragon:'fire',normal:'normal'};
@@ -233,6 +233,7 @@ function ensureViewerFighter(user){
  game.teams[id]=team;h.team=team;h.knockedOut=false;h.activeUntil=now+90000;
  if(team==='sieger'){if(game.enemies.length>=MAX_ENEMIES){const slot=game.enemies.findIndex(e=>!e.siegerHero&&!e.worldBoss);if(slot>=0)game.enemies.splice(slot,1);}summonSieger(id);const e=game.enemies.find(x=>x.siegerHero&&x.user===id);if(e){e.activeUntil=h.activeUntil=now+90000;e.x=Math.max(e.x,460);}}
  else {const d=addDefender(id,90000);if(d)d.activeUntil=h.activeUntil=now+90000;}
+ const scorePlayer=player(id);scorePlayer.joins=(scorePlayer.joins||0)+1;
  feed(displayHeroName(id),'AUTO JOIN '+team.toUpperCase(),'#9fe4cc');
  eventBanner={user:displayHeroName(id),title:team==='sieger'?'⚔ AUTO JOINED SIEGERS':'🛡 AUTO JOINED DEFENDERS',until:now+4400,color:team==='sieger'?'#ffb6cb':'#a8eac9'};
  return true;
@@ -404,7 +405,7 @@ function update(dt){
  for(const s of game.shots){
   s.life-=dt;if(!game.enemies.includes(s.target)||s.target.hp<=0){s.life=0;continue;}
   const dx=s.target.x-s.x,dy=s.target.y-13-s.y,dist=Math.hypot(dx,dy);
-  if(dist<dt*310+8){s.target.lastHitAt=game.time;s.target.lastHitDamage=Math.round(s.damage);s.target.hp-=s.damage;s.target.lastHitOwner=s.owner;s.life=0;pop(s.target.x,s.target.y-10,'#f5cc73',3);}
+  if(dist<dt*310+8){s.target.lastHitAt=game.time;s.target.lastHitDamage=Math.round(s.damage);s.target.hp-=s.damage;s.target.lastHitOwner=s.owner;if(s.owner&&s.owner!=='Φρουρά'){player(s.owner).damage=(player(s.owner).damage||0)+Math.max(0,Math.min(s.damage,s.target.hp+s.damage));}s.life=0;pop(s.target.x,s.target.y-10,'#f5cc73',3);}
   else{s.x+=dx/dist*310*dt;s.y+=dy/dist*310*dt;}
  }
  game.shots=game.shots.filter(s=>s.life>0);
@@ -420,7 +421,7 @@ function update(dt){
      e.attack=1.65/(1+(game.siegeBoost||0)/100+Math.floor((e.siegerLevel||1)/5)*.08);e.lastAttackAt=game.time;
      const victim=alive[Math.floor(Math.random()*alive.length)];
      const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
-     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0){const record=heroRecord(victim.name);record.revengeTarget=e.user;record.revengeUntil=Date.now()+180000;knockoutDefender(victim);noteLegend(e.user,'KO',e.siegerLevel||1);}
+     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+Math.min(actual,victim.hp+actual);if(victim.hp<=0)player(e.user).siegeKOs=(player(e.user).siegeKOs||0)+1;victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0){const record=heroRecord(victim.name);record.revengeTarget=e.user;record.revengeUntil=Date.now()+180000;knockoutDefender(victim);noteLegend(e.user,'KO',e.siegerLevel||1);}
      game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
      if(game.rangedBursts.length>20)game.rangedBursts.shift();
      if(victim.hp<=0){feed(displayHeroName(e.user),'KO '+displayHeroName(victim.name),'#f39daa');pop(180,320,'#ff8a9d',10);}
@@ -706,16 +707,21 @@ function drawEngagementHud(){
 }
 
 function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
-function topHeroIds(side){return (game.players||[]).filter(p=>String(p.user||'').replace(/^@/,'').toLowerCase()!=='katitrexei').map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
+function heroScore(p,side){
+ const base=(p.joins||0)*5+Math.floor((p.likes||0)/10);
+ return side==='siege'?base+Math.floor((p.siegeDamage||0)/5)+(p.siegeKOs||0)*50+(p.hostile||0)*20:base+Math.floor((p.damage||0)/5)+(p.kills||0)*25+(p.support||0)*12;
+}
+function topHeroIds(side){
+ return (game.players||[]).filter(p=>String(p.user||'').replace(/^@/,'').toLowerCase()!=='katitrexei'&&((game.teams||{})[p.user]===(side==='siege'?'sieger':'defender')))
+ .map(p=>({id:p.user,score:heroScore(p,side)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id);
+}
 function drawLiveLeaderboards(){
  const def=topHeroIds('defense'),siege=topHeroIds('siege');
- for(const [x,label,ids,color] of [[10,'🛡 DEFENDERS',def,'#a8eac9'],[246,'⚔ SIEGERS',siege,'#ffb6cb']]){
+ for(const [x,label,ids,color,side] of [[10,'🛡 DEFENDERS',def,'#a8eac9','defense'],[246,'⚔ SIEGERS',siege,'#ffb6cb','siege']]){
   rect(x,202,224,66,'#0b1226f5');rect(x,202,224,3,color);
   text(label,x+112,217,color,14,'center');
   for(let j=0;j<3;j++){
-   const id=ids[j],p=(game.players||[]).find(q=>q.user===id);
-   const score=p?(x===10?(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10):(p.hostile||0)*20):0;
-   const y=232+j*12;
+   const id=ids[j],p=(game.players||[]).find(q=>q.user===id),score=p?heroScore(p,side):0,y=232+j*12;
    text(id?String(j+1)+'. '+displayHeroName(id).slice(0,12):String(j+1)+'. —',x+7,y,'#ffffff',12);
    if(id)text(String(score),x+218,y,color,12,'right');
   }
