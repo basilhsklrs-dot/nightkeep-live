@@ -140,11 +140,11 @@ export async function startServer(env = process.env) {
       catch { res.writeHead(500); res.end('Frontend missing'); }
       return;
     }
-    if (req.method === 'GET' && (path === '/champion.js' || path === '/assets/nightkeep-characters.svg')) {
+    if (req.method === 'GET' && (path === '/champion.js' || path === '/assets/nightkeep-characters.svg' || path === '/assets/nightkeep-action-frames.svg')) {
       try {
         const asset = path === '/champion.js'
           ? new URL('./public/champion.js', import.meta.url)
-          : new URL('./public/assets/nightkeep-characters.svg', import.meta.url);
+          : new URL(path === '/assets/nightkeep-action-frames.svg' ? './public/assets/nightkeep-action-frames.svg' : './public/assets/nightkeep-characters.svg', import.meta.url);
         const data = await readFile(asset);
         res.writeHead(200, {
           'Content-Type': path.endsWith('.svg') ? 'image/svg+xml; charset=utf-8' : 'text/javascript; charset=utf-8',
