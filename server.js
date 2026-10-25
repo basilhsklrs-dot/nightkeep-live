@@ -251,6 +251,17 @@ export async function startServer(env = process.env) {
     }finally{chatSending=false;}
   };
   const chatGuidanceTimer = setInterval(() => { void sendGuidance(); }, 15000);
+  // Experimental browser autochat stays fully isolated and opt-in.
+  // Never start it in the established production deployment.
+  let browserAutochat;
+  if (env.AUTOCHAT_EXPERIMENT_ENABLED === 'true') {
+    void import('./experiments/autochat/bot.js').then(async ({run}) => {
+      const result = await run({env});
+      browserAutochat = result;
+      console.info(JSON.stringify({event:'autochat_experiment',state:result.state}));
+    }).catch(e => console.warn(JSON.stringify({event:'autochat_experiment_failed',reason:clean(e?.name || 'Error')})));
+  }
+
   if(chatEnabled&&!chatReady)console.warn('TikTok guidance chat disabled: configure EULER_API_KEY, TIKTOK_SESSION_ID, TIKTOK_TARGET_IDC.');
   const watchdog=setInterval(()=>{
     if(!demo&&!stopping&&!connecting&&status.state==='live'&&!connection?.isConnected){
@@ -274,6 +285,7 @@ export async function startServer(env = process.env) {
   async function close() {
     if (stopping) return; stopping = true;
     clearTimeout(reconnectTimer); clearInterval(demoTimer); clearInterval(heartbeat); clearInterval(watchdog);
+    if (browserAutochat?.stop) await browserAutochat.stop();
     for (const ws of wss.clients) ws.terminate();
     wss.close(); await dispose();
     await new Promise(resolve => server.close(resolve));
