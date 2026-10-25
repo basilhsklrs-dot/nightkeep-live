@@ -34,16 +34,42 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" > /dev/null
-      - name: Optional stable signing key (from secrets, never committed)
+      # Stable signing so updates install over the previous version.
+      # Priority: repo secret PK_KEYSTORE_B64; otherwise a key generated once and kept in the Actions cache (never committed).
+      - name: Restore cached signing key
+        id: keycache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.pk-signing
+          key: pk-signing-v1
+      - name: Prepare signing key
         env:
           KS: ${{ secrets.PK_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.PK_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.PK_KEY_ALIAS }}
+          KS_KEYPASS: ${{ secrets.PK_KEY_PASSWORD }}
         run: |
-          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/pk.jks"; echo "PK_KEYSTORE_FILE=$RUNNER_TEMP/pk.jks" >> "$GITHUB_ENV"; fi
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/pk.jks"
+            { echo "PK_KEYSTORE_FILE=$RUNNER_TEMP/pk.jks"; echo "PK_KEYSTORE_PASSWORD=$KS_PASS"; echo "PK_KEY_ALIAS=$KS_ALIAS"; echo "PK_KEY_PASSWORD=$KS_KEYPASS"; } >> "$GITHUB_ENV"
+            exit 0
+          fi
+          mkdir -p ~/.pk-signing
+          if [ ! -f ~/.pk-signing/pk.jks ]; then
+            openssl rand -hex 24 > ~/.pk-signing/pass
+            keytool -genkeypair -keystore ~/.pk-signing/pk.jks -storepass "$(cat ~/.pk-signing/pass)" -keypass "$(cat ~/.pk-signing/pass)" \
+              -alias nightkeep-pk -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=NIGHTKEEP PK, O=nightkeep.live"
+            echo "GENERATED_KEY=1" >> "$GITHUB_ENV"
+          fi
+          P=$(cat ~/.pk-signing/pass); echo "::add-mask::$P"
+          { echo "PK_KEYSTORE_FILE=$HOME/.pk-signing/pk.jks"; echo "PK_KEYSTORE_PASSWORD=$P"; echo "PK_KEY_ALIAS=nightkeep-pk"; echo "PK_KEY_PASSWORD=$P"; } >> "$GITHUB_ENV"
+      - name: Save signing key to cache
+        if: env.GENERATED_KEY == '1'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.pk-signing
+          key: pk-signing-v1
       - name: Unit tests + build
-        env:
-          PK_KEYSTORE_PASSWORD: ${{ secrets.PK_KEYSTORE_PASSWORD }}
-          PK_KEY_ALIAS: ${{ secrets.PK_KEY_ALIAS }}
-          PK_KEY_PASSWORD: ${{ secrets.PK_KEY_PASSWORD }}
         run: gradle --no-daemon --console=plain --stacktrace :app:testDebugUnitTest :app:assembleRelease
       - name: Name APK
         run: cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/NIGHTKEEP-PK-${{ github.run_number }}.apk"
@@ -64,4 +90,8 @@ jobs:
         run: |
           gh release view pk-battle-latest >/dev/null 2>&1 || gh release create pk-battle-latest --prerelease --title "NIGHTKEEP PK — latest APK" --notes "Automatically built from ${{ github.ref_name }} (run ${{ github.run_number }}). Install instructions: pk-battle/docs/INSTALL-el.md" --target "${{ github.sha }}"
           gh release upload pk-battle-latest NIGHTKEEP-PK-*.apk --clobber
+          # Keep only the newest APK on the release.
+          for a in $(gh release view pk-battle-latest --json assets -q '.assets[].name'); do
+            [ "$a" = "NIGHTKEEP-PK-${{ github.run_number }}.apk" ] || gh release delete-asset pk-battle-latest "$a" -y
+          done
           gh release edit pk-battle-latest --notes "Latest build: run ${{ github.run_number }} from ${{ github.ref_name }} @ ${{ github.sha }}. Install instructions: pk-battle/docs/INSTALL-el.md"
