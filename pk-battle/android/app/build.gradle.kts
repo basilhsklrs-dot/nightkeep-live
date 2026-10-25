@@ -15,7 +15,7 @@ android {
         targetSdk = 34
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
-        buildConfigField("String", "DEFAULT_SERVER", "\"${System.getenv("PK_DEFAULT_SERVER") ?: ""}\"")
+        buildConfigField("String", "DEFAULT_SERVER", "\"${System.getenv("PK_DEFAULT_SERVER")?.ifEmpty { null } ?: "https://nightkeep-pk-battle.onrender.com"}\"")
     }
     signingConfigs {
         if (ksFile != null && file(ksFile).exists()) create("stable") {

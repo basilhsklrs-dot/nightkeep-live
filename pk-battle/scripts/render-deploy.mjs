@@ -22,7 +22,8 @@ async function api(path, init = {}) {
   if (!r.ok) throw new Error(`${init.method || 'GET'} ${path} -> ${r.status} ${text.slice(0, 300)}`);
   return text ? JSON.parse(text) : null;
 }
-const list = async path => (await api(path)).map(x => Object.values(x).find(v => v && typeof v === 'object' && 'id' in v) ?? x);
+// Render wraps list items as {service:{…}}, {envVar:{…}}, {deploy:{…}}, {owner:{…}} (plus a cursor).
+const list = async path => (await api(path)).map(x => { const k = Object.keys(x).find(k => k !== 'cursor'); return k ? x[k] : x; });
 
 const owners = await list('/owners?limit=20');
 console.log('owners:', owners.map(o => `${o.name} (${o.type})`).join(', '));

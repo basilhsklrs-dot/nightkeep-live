@@ -69,7 +69,8 @@ export class RoomSource extends EventEmitter<RoomSourceEvents> {
   private retry() {
     if (this.stopping || this.timer) return;
     if (this.failures >= this.maxRetries) { this.set('offline'); return; }
-    const ms = Math.min(300_000, 5000 * 2 ** Math.min(this.failures++, 6)) + Math.random() * 2000;
+    // Capped at 60 s so a LIVE that starts later is picked up within about a minute.
+    const ms = Math.min(60_000, 5000 * 2 ** Math.min(this.failures++, 4)) + Math.random() * 2000;
     this.nextRetryAt = Date.now() + ms;
     this.set('offline');
     this.timer = setTimeout(() => { this.timer = undefined; if (this.connecting) this.retry(); else void this.connect(); }, ms);
