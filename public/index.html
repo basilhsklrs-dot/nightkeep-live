@@ -1174,9 +1174,29 @@ function drawPortrait(){
   if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
  game.lastMilitiaDrawTime=game.time;
- const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
+ // Stable screen-space formation: presentation only, never changes hitboxes or combat ranges.
+ const nkOccupied=[];
+ function nkReadablePosition(e){
+   const p=portraitEnemy(e);
+   if(e.worldBoss||e.kind==='dragon')return p;
+   const side=e.ranged?1:0;
+   let best={x:p.x,y:p.y},cost=Infinity;
+   // Small shifts retain the logical impact position while distributing crowded sprites.
+   for(const [dx,dy] of [[0,0],[-22,0],[22,0],[-12,-22],[12,-22],[-26,22],[26,22],[-36,-15],[36,-15]]){
+     const x=Math.max(36,Math.min(444,p.x+dx)),y=p.y+dy+(side?-8:0);
+     let overlap=0;
+     for(const o of nkOccupied){
+       const dist=Math.hypot((x-o.x)*1.0,(y-o.y)*1.15);
+       if(dist<31)overlap+=(31-dist)*(31-dist);
+     }
+     const c=overlap+Math.abs(dx)*.12+Math.abs(dy)*.2;
+     if(c<cost){cost=c;best={x,y};}
+   }
+   nkOccupied.push(best);return best;
+ }
+ const enemies=[...game.enemies].sort((a,b)=>(b.x-a.x)||(a.y-b.y));
  for(const e of enemies){
-  const p=portraitEnemy(e);combatShadow(p.x,p.y,e.kind==='dragon'?2:1);if(p.y<286&&!e.worldBoss&&!e.siegerHero)continue;
+  const p=nkReadablePosition(e);combatShadow(p.x,p.y,e.kind==='dragon'?2:1);if(p.y<286&&!e.worldBoss&&!e.siegerHero)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.attackPulse&&t-e.attackPulse<.21){smallImpact(p.x-8,p.y-12,'#f7b1a2',t-e.attackPulse);}
 
@@ -1184,6 +1204,7 @@ function drawPortrait(){
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text((e.criticalHit?'CRIT ':'')+'-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,e.criticalHit?'#ffb26e':'#fff5a5',16,'center');ctx.restore();}
   // Bow, quiver and projectile are drawn by drawEnemy for ranged units.
   if(e.siegerHero){
+   nkPlayerRing(p.x,p.y,'sieger',!!e.personalChampion);
    const attackAge=t-(e.lastAttackAt??-100);
    if(attackAge>=0&&attackAge<.19){const k=attackAge/.19;ctx.save();ctx.globalAlpha=1-k;ctx.strokeStyle='#f19b9b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x+9,p.y-21,19,-1.8+k*1.6,-.4+k*1.6);ctx.stroke();ctx.restore();}
    text('⚔ '+displayHeroName(e.user).slice(0,12)+' LV'+(e.siegerLevel||1),p.x,p.y-66,'#ffc6c6',12,'center');
@@ -1200,6 +1221,7 @@ function drawPortrait(){
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
   const attackAge=t-(d?.lastAttackAt??-100);const attacking=attackAge>=0&&attackAge<.16;if(attacking){ctx.save();ctx.globalAlpha=1-attackAge/.16;ctx.strokeStyle='#a0d7e4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+10,p.y-19,13,-1.4,.3);ctx.stroke();ctx.restore();}
   if(i<3)continue;
+  nkPlayerRing(p.x,p.y,'defender',!!d.personalChampion);
   if(heroRecord(d.name).combatClass==='archer'){drawReadableArcher(p.x,p.y,t,false);}else heroSilhouette(p.x,p.y,'defender',lv,attackAge,t-(d?.lastSiegeHitAt??-100));
   if(d){
    if(d.lastSiegeHitAt!=null)smallImpact(p.x,p.y-23,'#f590aa',t-d.lastSiegeHitAt);if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.4){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.4;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
@@ -1460,6 +1482,13 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  return true;
 }
 // Player differentiation uses elite armor and role colors; scale stays close to NPC units.
+function nkPlayerRing(x,y,team,champion=false){
+ ctx.save();
+ ctx.globalAlpha=.83;ctx.strokeStyle=champion?'#ffd56d':team==='sieger'?'#ffacbc':'#a7ebff';
+ ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x,y+11,champion?18:14,5,0,0,Math.PI*2);ctx.stroke();
+ ctx.fillStyle=champion?'#f6d77c':team==='sieger'?'#eaa2b6':'#a8dbe9';
+ ctx.fillRect(x-3,y-51,6,6);ctx.restore();
+}
 const NK_NPC_SCALE=.52, NK_PLAYER_SCALE=.56; // One consistent height in portrait, ~7.7% player emphasis
 const nkOldSilhouette=heroSilhouette;
 heroSilhouette=function(x,y,team,level,attackAge,hitAge=100){
