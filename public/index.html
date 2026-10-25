@@ -1166,7 +1166,7 @@ function drawPortrait(){
   const step=dist>0?Math.min(1,maxMove/dist):1;
   m.renderX+=vx*step;m.renderY+=vy*step;
   const px=m.renderX,py=m.renderY;combatShadow(px,py,.8);
-  ctx.save();ctx.translate(px,py);const depthScale=.43+Math.max(0,Math.min(.13,(py-400)/1200));ctx.scale(nkAtlasReady&&m.ranged?1:depthScale,nkAtlasReady&&m.ranged?1:depthScale);ctx.translate(-px,-py);
+  ctx.save();ctx.translate(px,py);const depthScale=.43+Math.max(0,Math.min(.13,(py-400)/1200));ctx.scale(nkAtlasReady?1:depthScale,nkAtlasReady?1:depthScale);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),(m.staggerUntil||0)>t?0.08:100);
   ctx.restore();
@@ -1460,17 +1460,18 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  return true;
 }
 // Player differentiation uses elite armor and role colors; scale stays close to NPC units.
+const NK_NPC_SCALE=.52, NK_PLAYER_SCALE=.56; // One consistent height in portrait, ~7.7% player emphasis
 const nkOldSilhouette=heroSilhouette;
 heroSilhouette=function(x,y,team,level,attackAge,hitAge=100){
  const attacking=attackAge>=0&&attackAge<.23;
  const hit=hitAge>=0&&hitAge<.22;
  const id=team==='sieger'?(level>=8?5:2):(level>=8?4:0);
- if(!nkArt(id,x,y,level>=20?.62:.59,attacking?'attack':hit?'hit':'idle',team==='sieger'?-1:1))
+ if(!nkArt(id,x,y,NK_PLAYER_SCALE,attacking?'attack':hit?'hit':'idle',team==='sieger'?-1:1))
   return nkOldSilhouette(x,y,team,level,attackAge,hitAge);
 };
 const nkOldArcher=drawReadableArcher;
 drawReadableArcher=function(x,y,t,enemy=true){
- if(!nkArt(enemy?3:1,x,y,.58,Math.sin(t*1.7+x*.02)>.6?'attack':'idle',enemy?-1:1))
+ if(!nkArt(enemy?3:1,x,y,NK_NPC_SCALE,Math.sin(t*1.7+x*.02)>.6?'attack':'idle',enemy?-1:1))
   return nkOldArcher(x,y,t,enemy);
 };
 const nkOldEnemy=drawEnemy;
@@ -1479,7 +1480,7 @@ drawEnemy=function(e,x=e.x,y=e.y,portraitView=false){
  const idx=e.personalChampion?7:e.worldBoss?6:e.siegerHero&&e.siegerLevel>=8?5:e.ranged?3:2;
  const attacking=e.lastAttackAt!=null&&game.time-e.lastAttackAt<.24;
  const hit=e.lastHitAt!=null&&game.time-e.lastHitAt<.22;
- if(!nkArt(idx,x,y,e.worldBoss?1.12:e.personalChampion?.72:e.siegerHero?.62:e.kind==='mini'?.78:.58,attacking?'attack':hit?'hit':'walk',-1))
+ if(!nkArt(idx,x,y,e.worldBoss?1.12:e.personalChampion?.68:e.siegerHero?NK_PLAYER_SCALE:e.kind==='mini'?.70:NK_NPC_SCALE,attacking?'attack':hit?'hit':'walk',-1))
   return nkOldEnemy(e,x,y,portraitView);
 };
 const nkOldWorldBoss=drawWorldBoss;
@@ -1490,7 +1491,7 @@ drawWorldBoss=function(e,x,y){
 };
 const nkOldSprite=sprite;
 sprite=function(data,x,y,scale,palette,flip=false){
- if(data===knight&&nkArt(0,x+12,y+scale*12,scale*.32,'idle',1))return;
+ if(data===knight&&nkArt(0,x+12,y+scale*12,scale*.29,'idle',1))return;
  return nkOldSprite(data,x,y,scale,palette,flip);
 };
 
