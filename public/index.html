@@ -516,7 +516,7 @@ function update(dt){
     e.npcHeroCooldown=(e.npcHeroCooldown||0)-dt;
     if(e.npcHeroCooldown<=0){
      e.npcHeroCooldown=1.7;
-     const victim=living[Math.floor(Math.random()*living.length)];
+     const attacker=portraitEnemy(e);const nearby=living.filter(d=>{const p=portraitDefender(game.defenders.indexOf(d)+3);return Math.hypot(attacker.x-p.x,attacker.y-p.y)<95;});const victim=nearby.reduce((best,d)=>{const p=portraitDefender(game.defenders.indexOf(d)+3);const q=best?portraitDefender(game.defenders.indexOf(best)+3):null;return !best||Math.hypot(attacker.x-p.x,attacker.y-p.y)<Math.hypot(attacker.x-q.x,attacker.y-q.y)?d:best;},null);if(!victim)continue;
      const dmg=Math.max(5,Math.min(24,(e.damage||12)*.45));
      victim.hp=Math.max(0,victim.hp-(game.shield>0?dmg*.35:dmg));
      victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.ceil(dmg);
@@ -526,7 +526,7 @@ function update(dt){
    }
   }
   if(!e.ranged&&!e.siegerHero&&!e.worldBoss){
-   const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
+   const guard=game.militia.filter(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<42&&Math.abs(m.y-e.y)<23).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0];
    if(guard){
     e.attack=(e.attack||0)-dt;
     if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1)*(e.chargeUntil>game.time?1.2:1);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
@@ -558,7 +558,7 @@ function update(dt){
   }
   // Real sieger melee heroes also engage defender NPCs, not only viewer heroes.
   if(e.siegerHero&&!e.ranged){
-   const guard=game.militia.find(m=>m.hp>0&&!m.ranged&&Math.abs(m.y-e.y)<30);
+   const guard=game.militia.filter(m=>m.hp>0&&!m.ranged&&Math.abs(m.y-e.y)<26&&Math.abs(m.x-e.x)<54).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0];
    if(guard&&e.x<=guard.x+38){
     e.attack=(e.attack||0)-dt;
     if(e.attack<=0){e.attack=1.35;e.lastAttackAt=game.time;const damage=Math.max(10,15+(e.siegerLevel||1)*2);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+damage;pop(guard.x,guard.y-12,'#f5acac',5);}
