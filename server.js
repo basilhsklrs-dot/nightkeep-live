@@ -245,6 +245,21 @@ export async function startServer(env = process.env) {
       for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['MEMBER','join'],['ROOM_USER','roomUser'],['CHAT','chat']]) {
         current.on(WebcastEvent[key], d => { if (!valid()) return; if(type==='roomUser'&&!((d.user?.uniqueId||d.user?.displayId||d.uniqueId)&&d.user?.nickname))return; const event=normalizer.normalize(type==='roomUser'?'join':type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));if(event?.type==='join')console.info(JSON.stringify({event:'viewer_join_received',user:event.user,source:type}));emit(event); });
       }
+      // PK telemetry is read-only. The connector does not expose a verified invitation-accept API.
+      for(const key of ['LINK_MIC_BATTLE','LINK_MIC_ARMIES','LINK_MIC_BATTLE_PUNISH_FINISH']){
+        if(!WebcastEvent[key])continue;
+        current.on(WebcastEvent[key], d=>{
+          if(!valid())return;
+          const data=d?.data||d;
+          const rawStatus=String(data?.battleStatus??data?.status??data?.battle_status??'').toLowerCase();
+          const rawTime=Number(data?.duration??data?.battleDuration??0);
+          const finished=key==='LINK_MIC_BATTLE_PUNISH_FINISH'||['end','ended','finish','finished','3','4'].includes(rawStatus);
+          const started=key==='LINK_MIC_BATTLE'&&!finished;
+          // Do not synthesize official PK scores from gifts or unknown payload fields.
+          emit({type:'pk',phase:finished?'end':started?'start':'update',duration:Number.isFinite(rawTime)&&rawTime>0&&rawTime<3600?rawTime:null,source:key});
+          console.info(JSON.stringify({event:'pk_signal',source:key,phase:finished?'end':started?'start':'update'}));
+        });
+      }
       let deadline;
       const pending = current.connect();
       // A late resolve after a timeout must not leave an abandoned connection alive.
