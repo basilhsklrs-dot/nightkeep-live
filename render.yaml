@@ -1,0 +1,25 @@
+# Render Blueprint for the NEW PK Battle service only.
+# The existing NIGHTKEEP production service is NOT declared here and is not touched.
+services:
+  - type: web
+    name: nightkeep-pk-battle
+    runtime: node
+    plan: free
+    rootDir: pk-battle/server
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: TIKTOK_USERNAME
+        value: nightkeep.live
+      - key: GAME_MODE
+        value: pk
+      - key: EULER_API_KEY
+        sync: false          # paste the same EulerStream key NIGHTKEEP uses
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: DEVICE_TOKEN
+        generateValue: true  # copy into the Android app (Device token)
+      - key: ALLOW_SIM
+        value: "false"

@@ -1,0 +1,25 @@
+name: PK Battle — server tests
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'pk-battle/server/**'
+      - '.github/workflows/pk-battle-server.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: pk-battle/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: pk-battle/server/package-lock.json
+      - run: npm ci
+      - run: npm test

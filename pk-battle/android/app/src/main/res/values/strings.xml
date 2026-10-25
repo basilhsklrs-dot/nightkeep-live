@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NIGHTKEEP PK</string>
+    <string name="service_label">NIGHTKEEP PK Auto Accept</string>
+    <string name="service_description">Reads only the TikTok app screen to recognise an incoming PK / match invitation. In AUTO mode it taps the visible Accept button of that invitation; in ASSIST mode it only alerts you. Nothing else is read, stored or sent, except a short event report (inviter name, accepted or not) to your own game server. Turn it off anytime in the app or with the Quick Settings tile.</string>
+</resources>
