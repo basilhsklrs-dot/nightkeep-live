@@ -1499,6 +1499,8 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  const striking=mode==='attack'||mode==='critical'||mode==='special';
  const moving=walking?Math.sin(t*(mode==='run'?16:9)+x*.04):0;
  const bob=walking?Math.abs(moving)*3:Math.sin(t*2+x*.03)*1.2;
+ const attackPhase=striking?(Math.sin(t*18)+1)*.5:0;
+ const impactPhase=mode==='hit'?Math.max(0,Math.sin(t*38)):0;
  const lean=mode==='hit'?.13*Math.sin(t*42):striking?-.2*Math.sin(t*20):mode==='block'?.12:0;
  ctx.save();
  ctx.translate(x+(striking?Math.sin(t*18)*Math.min(4,5*size):0),y+bob);
@@ -1507,6 +1509,10 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  if(mode==='death')ctx.rotate(Math.PI/2);
  // Sprite frame: a complete independently illustrated character, with pose transforms.
  ctx.drawImage(nkAtlas,index*128,0,128,160,-48,-112,96,120);
+ // Layered combat accents synchronized to attack/hit states; original sprite retains identity.
+ if(striking&&index!==6&&index!==7){ctx.save();ctx.globalAlpha=.35+.5*attackPhase;ctx.strokeStyle=index===2||index===3||index===5?'#ffb1b8':'#a9efff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(facing>0?20:-20,-54,23,-1.2,1.05);ctx.stroke();ctx.restore();}
+ if(mode==='block'){ctx.save();ctx.globalAlpha=.55;ctx.strokeStyle='#e8dfc4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(-20,-45,17,24,0,0,Math.PI*2);ctx.stroke();ctx.restore();}
+ if(mode==='hit'){ctx.save();ctx.globalAlpha=.3+.4*impactPhase;ctx.fillStyle='#fff2cb';ctx.beginPath();ctx.arc(0,-54,24,0,Math.PI*2);ctx.fill();ctx.restore();}
  if(mode==='hit'){ctx.save();ctx.globalAlpha=.6;ctx.strokeStyle='#ffe0a4';ctx.lineWidth=3;ctx.strokeRect(-34,-99,68,85);ctx.restore();}
  if(mode==='special'){
   ctx.globalAlpha=.8;
