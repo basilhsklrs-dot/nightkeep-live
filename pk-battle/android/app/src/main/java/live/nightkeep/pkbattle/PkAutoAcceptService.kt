@@ -84,11 +84,9 @@ class PkAutoAcceptService : AccessibilityService() {
         val (nodes, infos) = snapshot()
         if (prefs.captureNext && nodes.isNotEmpty()) {
             prefs.captureNext = false
-            val dump = nodes.filter { it.text.isNotEmpty() || it.desc.isNotEmpty() || it.clickable }.take(80)
-                .joinToString("\n") { "#${it.index}<${it.parent} ${if (it.clickable) "C" else "-"}${if (it.enabled) "E" else "-"} id=${it.viewId.substringAfter(":id/", it.viewId)} t='${it.text.take(40)}' d='${it.desc.take(40)}'" }
-            DiagLog.log("capture", "TikTok UI (${nodes.size} nodes):\n$dump")
-            Backend.report(prefs, "ui_capture", detail = "${nodes.size} nodes captured")
+            sendDump(nodes, "manual capture")
         }
+        probe(nodes)
         if (prefs.mode == AcceptMode.OFF) return
         val result = PkMatcher.match(nodes, prefs.matchConfig())
         val now = SystemClock.elapsedRealtime()
@@ -104,6 +102,31 @@ class PkAutoAcceptService : AccessibilityService() {
             }
             is MatchResult.Invitation -> handleInvite(result, infos, now)
         }
+    }
+
+    private fun dumpOf(nodes: List<UiNode>) = nodes.filter { it.text.isNotEmpty() || it.desc.isNotEmpty() || it.clickable }.take(150)
+        .joinToString("\n") { "#${it.index}<${it.parent} ${if (it.clickable) "C" else "-"}${if (it.enabled) "E" else "-"}${if (it.visible) "V" else "-"} id=${it.viewId.substringAfter(":id/", it.viewId)} t='${it.text.take(60)}' d='${it.desc.take(60)}'" }
+
+    private fun sendDump(nodes: List<UiNode>, reason: String) {
+        val dump = dumpOf(nodes)
+        DiagLog.log("capture", "$reason (${nodes.size} nodes):\n${dump.take(3000)}")
+        Backend.report(prefs, "ui_capture", detail = "$reason; ${nodes.size} nodes", dump = dump)
+    }
+
+    private val probeWords = Regex("(?U)\\b(pk|match|matches|battle|invit\\w*|accept|decline|προσκλ\\w*|αγων\\w*|μαχ\\w*|αποδοχ\\w*|αποδεχ\\w*|απορριψ\\w*)\\b")
+    private var lastProbeKey = ""
+    private var lastProbeAt = 0L
+
+    /** Calibration: automatically send any TikTok screen that looks like a PK/match prompt (deduplicated, max 1 per 8 s). */
+    private fun probe(nodes: List<UiNode>) {
+        if (prefs.mode == AcceptMode.OFF) return
+        val hits = nodes.filter { it.visible }.mapNotNull { n -> probeWords.find(PkMatcher.norm(n.text + " " + n.desc))?.value }.distinct()
+        if (hits.isEmpty()) return
+        val key = hits.sorted().joinToString(",")
+        val now = SystemClock.elapsedRealtime()
+        if (key == lastProbeKey || now - lastProbeAt < 8000) return
+        lastProbeKey = key; lastProbeAt = now
+        sendDump(nodes, "auto: $key")
     }
 
     private fun handleInvite(r: MatchResult.Invitation, infos: List<AccessibilityNodeInfo>, now: Long) {

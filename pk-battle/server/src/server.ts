@@ -29,6 +29,8 @@ interface Slot {
   opponent?: RoomSource;
   opponentStopTimer?: NodeJS.Timeout;
   device: DeviceReport[];
+  /** Last UI dumps from the tablet (TikTok screen text/ids) for calibrating invitation recognition. */
+  dumps: { at: number; reason: string; dump: string }[];
   lastSimAt: number;
   verifiedAccepts: number;
 }
@@ -107,7 +109,7 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
   for (const host of hosts) {
     const session = new Session(host, rules, { name: env.HOST_DISPLAY_NAME || host, handle: host }, mode);
     session.restore(saved[host]);
-    const slot: Slot = { session, tracker: new PkTracker(host), device: [], lastSimAt: 0, verifiedAccepts: 0 };
+    const slot: Slot = { session, tracker: new PkTracker(host), device: [], dumps: [], lastSimAt: 0, verifiedAccepts: 0 };
     slots.set(host, slot);
     if (!demo) {
       const src = new RoomSource(host, 'left', env.EULER_API_KEY);
@@ -130,18 +132,18 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
   const authorized = (req: http.IncomingMessage, ...tokens: string[]) => { const t = bearer(req); return !!t && tokens.some(k => k && safeEq(t, k)); };
   const body = (req: http.IncomingMessage) => new Promise<any>((ok, fail) => {
     let size = 0; const chunks: Buffer[] = [];
-    req.on('data', c => { size += c.length; if (size > 16384) { fail(new Error('too large')); req.destroy(); } else chunks.push(c); });
+    req.on('data', c => { size += c.length; if (size > 65536) { fail(new Error('too large')); req.destroy(); } else chunks.push(c); });
     req.on('end', () => { try { ok(JSON.parse(Buffer.concat(chunks).toString() || '{}')); } catch { fail(new Error('bad json')); } });
     req.on('error', fail);
   });
   const slotOf = (id: string | null) => slots.get(clean(id || defaultId).replace(/^@/, ''));
 
-  const diagnostics = (slot: Slot) => ({
+  const diagnostics = (slot: Slot, url?: URL) => ({
     instance, uptimeSec: Math.floor((Date.now() - started) / 1000), demo, mode: slot.session.mode, allowSim,
     simulatedRecently: demo || Date.now() - slot.lastSimAt < 60_000,
     host: slot.host?.diagnostics() ?? null, opponent: slot.opponent?.diagnostics() ?? null,
     pk: slot.session.pk, tracker: slot.tracker.state, counters: slot.session.counters,
-    device: slot.device.slice(-30), verifiedAccepts: slot.verifiedAccepts,
+    device: slot.device.slice(-30), dumps: url?.searchParams.get('dumps') === '1' ? slot.dumps : slot.dumps.length, verifiedAccepts: slot.verifiedAccepts,
     clients: wss.clients.size, rules: { giftTiers: rules.giftTiers, combo: rules.combo, giftIdMapSize: Object.keys(rules.giftIdMap).length },
   });
 
@@ -156,7 +158,7 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
       if (req.method === 'GET' && path === '/api/state') { const s = slotOf(url.searchParams.get('session')); return s ? json(res, 200, { ...s.session.snapshot(), simulated: diagnostics(s).simulatedRecently }) : json(res, 404, { error: 'unknown session' }); }
       if (req.method === 'GET' && path === '/api/diagnostics') {
         if ((adminToken || deviceToken) && !authorized(req, adminToken, deviceToken)) return json(res, 401, { error: 'token required' });
-        const s = slotOf(url.searchParams.get('session')); return s ? json(res, 200, diagnostics(s)) : json(res, 404, { error: 'unknown session' });
+        const s = slotOf(url.searchParams.get('session')); return s ? json(res, 200, diagnostics(s, url)) : json(res, 404, { error: 'unknown session' });
       }
       if (req.method === 'POST' && path === '/api/control') {
         if (!authorized(req, adminToken, deviceToken)) return json(res, 401, { error: 'token required' });
@@ -186,6 +188,11 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
         if (!kinds.includes(b.kind)) return json(res, 400, { error: 'unknown kind' });
         s.device.push({ at: Date.now(), kind: b.kind, inviter: clean(b.inviter, 64), detail: clean(b.detail, 200), mode: clean(b.mode, 12) });
         if (s.device.length > 100) s.device.shift();
+        if (b.kind === 'ui_capture' && typeof b.dump === 'string') {
+          // Keep control characters out but preserve line breaks of the dump.
+          s.dumps.push({ at: Date.now(), reason: clean(b.detail, 120), dump: String(b.dump).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').slice(0, 12000) });
+          if (s.dumps.length > 8) s.dumps.shift();
+        }
         return json(res, 200, { ok: true, pk: s.session.pk.phase, battle: s.session.battle.phase });
       }
       if (req.method === 'GET') {

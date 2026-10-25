@@ -80,9 +80,10 @@ object Backend {
         return code to text
     }
 
-    fun report(prefs: Prefs, kind: String, inviter: String = "", detail: String = "") {
+    fun report(prefs: Prefs, kind: String, inviter: String = "", detail: String = "", dump: String? = null) {
         if (prefs.serverUrl.isEmpty() || prefs.deviceToken.isEmpty()) return
         val body = JSONObject().put("session", prefs.session).put("kind", kind).put("inviter", inviter).put("detail", detail.take(190)).put("mode", prefs.mode.name.lowercase())
+        if (dump != null) body.put("dump", dump.take(12000))
         pool.execute { runCatching { call("${prefs.serverUrl}/api/device/report", "POST", prefs.deviceToken, body) }.onFailure { DiagLog.log("net", "report failed: ${it.javaClass.simpleName}") } }
     }
 
