@@ -428,18 +428,24 @@ function update(dt){
   game.militia.push({x:151,y:338+Math.random()*28,hp:ranged?65:105,maxHp:ranged?65:105,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
   game.militiaSpawn=2.8;
  }
- for(const m of game.militia){
-  m.cooldown-=dt*speed;m.phase+=dt*6;
-  const enemy=game.enemies.filter(e=>e.hp>0&&!e.worldBoss).sort((a,b)=>a.x-b.x)[0];
-  if(!enemy){if(!m.ranged)m.x=Math.min(254,m.x+18*dt);continue;}
-  const gap=enemy.x-m.x;
-  if(!m.ranged&&gap>23)m.x=Math.min(enemy.x-21,m.x+25*dt);
-  if(m.ranged&&m.x<185)m.x=Math.min(185,m.x+12*dt);
-  if(gap>(m.ranged?170:30)||m.cooldown>0)continue;
-  m.cooldown=m.ranged?2.1:.85;m.hitAt=game.time;
-  const damage=m.ranged?13:17;
-  if(m.ranged){shoot(m.x,m.y-10,damage,'#b6ecff','Φρουρά');}
-  else {enemy.hp-=damage;enemy.lastHitOwner='Φρουρά';enemy.lastHitAt=game.time;enemy.lastHitDamage=damage;pop(enemy.x,enemy.y-12,'#b9d9ee',3);}
+ for(let j=0;j<game.militia.length;j++){
+  const m=game.militia[j];m.cooldown-=dt*speed;m.phase+=dt*6;
+  // Unique target selection distributes melee across lanes instead of a single blob.
+  const foes=game.enemies.filter(e=>e.hp>0&&!e.worldBoss&&!e.ranged);
+  let enemy=foes.find(e=>e===m.target&&e.hp>0);
+  if(!enemy){enemy=foes.length?foes.reduce((best,e)=>Math.abs(e.x-m.x)+Math.abs(e.y-m.y)*.8<Math.abs(best.x-m.x)+Math.abs(best.y-m.y)*.8?e:best,foes[0]):game.enemies.find(e=>e.hp>0&&!e.worldBoss);m.target=enemy||null;}
+  if(!enemy){if(!m.ranged)m.x=Math.min(245,m.x+22*dt);continue;}
+  const laneDelta=enemy.y-m.y, dx=enemy.x-m.x,reach=m.ranged?145:22;
+  if(!m.ranged){
+   const slot=(j%4-1.5)*7;const desiredX=enemy.x-reach-slot*.18;
+   if(Math.abs(desiredX-m.x)>3)m.x+=Math.sign(desiredX-m.x)*Math.min(Math.abs(desiredX-m.x),33*dt);
+   if(Math.abs(laneDelta)>3)m.y+=Math.sign(laneDelta)*Math.min(Math.abs(laneDelta),19*dt);
+  }else if(m.x<186)m.x=Math.min(186,m.x+18*dt);
+  if(Math.abs(enemy.x-m.x)>reach+10||Math.abs(enemy.y-m.y)>(m.ranged?75:24)||m.cooldown>0)continue;
+  m.cooldown=m.ranged?2.0:.9;m.hitAt=game.time;m.hitTargetX=enemy.x;m.hitTargetY=enemy.y;
+  const damage=m.ranged?14:19;
+  if(m.ranged){if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:enemy,damage,owner:'Φρουρά',color:'#b8e9fc',life:2});}
+  else {enemy.hp-=damage;enemy.lastHitOwner='Φρουρά';enemy.lastHitAt=game.time;enemy.lastHitDamage=damage;enemy.attackPulse=game.time;pop(enemy.x,enemy.y-10,'#cfe7f8',4);}
  }
  game.militia=game.militia.filter(m=>m.hp>0);
 
@@ -460,7 +466,7 @@ function update(dt){
   e.phase+=dt*5;
   // Enemy melee units clash with summoned defenders before breaching the castle.
   if(!e.ranged&&!e.siegerHero&&!e.worldBoss){
-   const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<29);
+   const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<31&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
     if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(7,(e.damage||15)*.3));e.lastAttackAt=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
@@ -1024,17 +1030,19 @@ function drawPortrait(){
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
  // Draw the real autonomous garrison: melee advance, archers remain behind.
  for(const m of game.militia||[]){
-  const px=212+(m.x-145)*.45+(m.y-350)*.7,py=626-(m.x-145)*1.05;
+  const px=208+(m.x-145)*.78+(m.y-350)*1.4,py=621-(m.x-145)*.82+(m.y-350)*.12;
   ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
   else heroSilhouette(px,py,'defender',1,t-(m.hitAt||-100));
   ctx.restore();
-  if(m.hitAt&&t-m.hitAt<.18&&!m.ranged)smallImpact(px+12,py-14,'#c2e6ff',t-m.hitAt);
+  if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
  const enemies=[...game.enemies].sort((a,b)=>a.x>b.x?-1:1);
  for(const e of enemies){
   const p=portraitEnemy(e);if(p.y<286&&!e.worldBoss&&!e.siegerHero)continue;
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
+  if(e.attackPulse&&t-e.attackPulse<.21){smallImpact(p.x-8,p.y-12,'#f7b1a2',t-e.attackPulse);}
+
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {if(e.siegerHero){if(e.combatClass==='archer'){ctx.save();ctx.translate(p.x,p.y);ctx.scale(.63,.63);ctx.translate(-p.x,-p.y);drawReadableArcher(p.x,p.y,t,true);ctx.restore();}else heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100),t-(e.lastHitAt??-100));}else drawEnemy(e,p.x,p.y,true);}
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
   // Bow, quiver and projectile are drawn by drawEnemy for ranged units.
