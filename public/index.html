@@ -455,11 +455,11 @@ function update(dt){
    continue;
   }
   const underPressure=m.ranged&&game.enemies.some(e=>e.hp>0&&!e.ranged&&e.x-m.x<67&&Math.abs(e.y-m.y)<30);
-  const desiredX=m.ranged?(underPressure||m.retreatUntil>game.time?145:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
+  const desiredX=m.ranged?(underPressure||m.retreatUntil>game.time?145:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(339,Math.min(387,foe.y));
   const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
   const prevX=m.x;
   m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
-  m.y=walk(desiredY,m.y,16*dt)+battleSeparation(m,game.militia,dt);m.y=Math.max(357,Math.min(386,m.y));
+  m.y=walk(desiredY,m.y,16*dt)+battleSeparation(m,game.militia,dt);m.y=Math.max(337,Math.min(389,m.y));
   m.facing=foe.x>=m.x?1:-1;
   const range=Math.hypot(foe.x-m.x,(foe.y-m.y)*1.65);
   const canStrike=range<=(m.ranged?210:34);
@@ -586,24 +586,26 @@ function update(dt){
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
  }
- // Formation steering in WORLD coordinates (not a canvas-only optical offset).
- // Stable per-wave ranks: melee hold forward lanes, archers occupy rear lanes.
- // Steering is bounded per frame to avoid teleporting or breaking melee range.
- const nkRanked=game.enemies.filter(v=>v.hp>0&&!v.worldBoss&&v.kind!=='dragon');
- const nkMelee=nkRanked.filter(v=>!v.ranged);
- const nkArchers=nkRanked.filter(v=>v.ranged);
- for(const [units,rear] of [[nkMelee,false],[nkArchers,true]]){
+ // Battlefront v2: real lane steering, no artificial backward push.
+ // World lateral y maps to horizontal screen position; provide the full playable width.
+ const nkEnemies=game.enemies.filter(v=>v.hp>0&&!v.worldBoss&&v.kind!=='dragon');
+ const nkFront=nkEnemies.filter(v=>!v.ranged);
+ const nkRear=nkEnemies.filter(v=>v.ranged);
+ for(const [units,rear] of [[nkFront,false],[nkRear,true]]){
   for(let k=0;k<units.length;k++){
    const e=units[k];
-   const lane=k%7,rank=Math.floor(k/7);
-   const desiredY=346+(lane-3)*6.8;
-   const stepY=Math.max(-11*dt,Math.min(11*dt,desiredY-e.y));
-   e.y=Math.max(324,Math.min(371,e.y+stepY));
-   // Only guide units while approaching. Existing combat determines exact attack position.
-   if(e.x>290&&!e.siegerHero){
-    const targetX=rear?Math.max(380,403-rank*5):Math.max(302,354-rank*9);
-    if(e.x<targetX)e.x=Math.min(targetX,e.x+12*dt);
+   // Stable assignment prevents lane shuffling as enemies die.
+   if(e.battleLane==null)e.battleLane=((game.spawnNumber||0)+k*3)%11;
+   const lane=e.battleLane;
+   const idealY=340+lane*4.6+(Math.floor(k/11)%2?2:-2);
+   const proximity=game.militia.some(m=>m.hp>0&&!m.ranged&&Math.hypot(m.x-e.x,(m.y-e.y)*1.65)<52);
+   // Never sideways-steer a combatant while in striking distance.
+   if(!proximity){
+    const step=Math.max(-15*dt,Math.min(15*dt,idealY-e.y));
+    e.y=Math.max(337,Math.min(389,e.y+step));
    }
+   // The existing engine alone controls forward x and attack range. Ranged NPCs
+   // retain their own rear-line/retreat logic; do not push melee back to spawn.
   }
  }
  // Resolve enemy arrows ON IMPACT, not when an archer starts the shot.
