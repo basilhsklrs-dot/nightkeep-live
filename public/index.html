@@ -425,29 +425,58 @@ function update(dt){
  game.militiaSpawn=(game.militiaSpawn||0)-dt;
  if(game.militiaSpawn<=0&&game.militia.length<7){
   const ranged=Math.random()<.38;
-  game.militia.push({x:151,y:360+Math.random()*18,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100});
+  game.militia.push({x:151,y:360+Math.random()*18,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100,combatState:'advance',facing:1,attackWindup:0,staggerUntil:0});
   game.militiaSpawn=5.5;
  }
  for(let j=0;j<game.militia.length;j++){
   const m=game.militia[j];m.cooldown-=dt*speed;m.phase+=dt*6;
-  // Permanent side-specific lines: castle -> melee frontline -> siege line.
-  const candidates=game.enemies.filter(e=>e.hp>0&&!e.ranged&&!e.worldBoss);
-  const near=candidates.sort((a,b)=>Math.abs(a.y-m.y)-Math.abs(b.y-m.y))[0];
+  const alive=game.enemies.filter(e=>e.hp>0&&!e.worldBoss);
+  // Keep a target until it dies: no every-frame random target switches.
+  if(!m.target||m.target.hp<=0||!game.enemies.includes(m.target)){
+   m.target=alive.filter(e=>!e.ranged).sort((a,b)=>Math.hypot(a.x-m.x,(a.y-m.y)*2)-Math.hypot(b.x-m.x,(b.y-m.y)*2))[0]||alive[0]||null;
+  }
+  const foe=m.target;
   const lane=Math.max(359,Math.min(384,m.homeLane||(m.homeLane=360+(j%5)*5)));
-  const desiredX=m.ranged?184:near?Math.max(196,Math.min(267,near.x-21)):236;
-  const desiredY=m.ranged?lane:near?Math.max(359,Math.min(384,near.y)):lane;
-  const step=(target,current,max)=>current+Math.max(-max,Math.min(max,target-current));
-  m.x=step(desiredX,m.x,(m.ranged?20:37)*dt);
-  m.y=step(desiredY,m.y,14*dt);
-  m.target=near||null;
-  if(!near||m.cooldown>0)continue;
-  const distance=Math.hypot(near.x-m.x,(near.y-m.y)*1.6);
-  if(distance>(m.ranged?174:36))continue;
-  m.hitAt=game.time;m.cooldown=m.ranged?2.8:1.45;
-  const damage=m.ranged?6:9;
-  if(m.ranged){if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:near,damage,owner:'Φρουρά',color:'#b8e9fc',life:2});}
-  else {near.hp-=damage;near.lastHitOwner='Φρουρά';near.lastHitAt=game.time;near.lastHitDamage=damage;near.attackPulse=game.time;pop(near.x,near.y-10,'#cfe7f8',4);}
+  if(!foe){
+   m.combatState='guard';
+   const mx=m.ranged?185:237,my=lane;
+   m.x+=Math.max(-30*dt,Math.min(30*dt,mx-m.x));m.y+=Math.max(-16*dt,Math.min(16*dt,my-m.y));
+   continue;
+  }
+  const desiredX=m.ranged?188:Math.max(191,Math.min(280,foe.x-19)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
+  const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
+  const prevX=m.x;
+  m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
+  m.y=walk(desiredY,m.y,16*dt);
+  m.facing=foe.x>=m.x?1:-1;
+  const range=Math.hypot(foe.x-m.x,(foe.y-m.y)*1.65);
+  const canStrike=range<=(m.ranged?174:31);
+  m.combatState=!canStrike?'advance':m.cooldown>0?'guard':'windup';
+  if(!canStrike||m.cooldown>0)continue;
+  // Attack animation begins before the impact, then resolves in a later tick.
+  if(!m.attackWindup){
+   m.attackWindup=m.ranged?.30:.20;m.pendingTarget=foe;m.cooldown=m.ranged?2.7:1.55;
+   m.combatState='attack';m.lastAttackAt=game.time;
+  }
  }
+ for(const m of game.militia){
+  if(m.attackWindup>0){
+   m.attackWindup-=dt;
+   if(m.attackWindup<=0){
+    const e=m.pendingTarget;m.pendingTarget=null;m.attackWindup=0;
+    if(!e||e.hp<=0||!game.enemies.includes(e))continue;
+    if(m.ranged){
+     if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:e,damage:6,owner:'Φρουρά',color:'#a8eafb',life:2,arrow:true,launchAt:game.time});
+    }else if(Math.hypot(e.x-m.x,(e.y-m.y)*1.65)<40){
+     e.hp-=9;e.lastHitOwner='Φρουρά';e.lastHitAt=game.time;e.lastHitDamage=9;e.attackPulse=game.time;e.staggerUntil=game.time+.22;pop(e.x,e.y-10,'#cfe7f8',4);
+    }
+    m.hitAt=game.time;m.combatState='recover';
+   }
+  }
+ }
+ game.fallenUnits||=[];
+ for(const m of game.militia)if(m.hp<=0&&!m.deathRecorded){m.deathRecorded=true;game.fallenUnits.push({x:m.x,y:m.y,side:'defender',at:game.time});}
+ game.fallenUnits=game.fallenUnits.filter(k=>game.time-k.at<3);
  game.militia=game.militia.filter(m=>m.hp>0);
 
  for(let i=3;i<game.defenders.length+3;i++){
@@ -477,7 +506,7 @@ function update(dt){
      const dmg=Math.max(5,Math.min(24,(e.damage||12)*.45));
      victim.hp=Math.max(0,victim.hp-(game.shield>0?dmg*.35:dmg));
      victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.ceil(dmg);
-     e.lastAttackAt=game.time;
+     e.lastAttackAt=game.time;e.attackPulse=game.time;
      if(victim.hp<=0)knockoutDefender(victim);
     }
    }
@@ -486,7 +515,7 @@ function update(dt){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(7,(e.damage||15)*.3));e.lastAttackAt=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
+    if(e.attack<=0){e.attack=1.2;guard.hp=Math.max(0,guard.hp-Math.max(7,(e.damage||15)*.3));guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
     continue;
    }
   }
@@ -523,7 +552,7 @@ function update(dt){
   }
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>335){e.x-=e.speed*dt;continue;}
-  if(e.ranged){e.lastAttackAt=game.time;e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));if(victim.hp<=0)knockoutDefender(victim);game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else{const defender=game.militia.find(m=>m.hp>0);if(defender)defender.hp=Math.max(0,defender.hp-12);else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);}game.rangedBursts||=[];game.rangedBursts.push({at:game.time,from:e.y,archer:true});beep('shoot');}continue;}
+  if(e.ranged){e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;e.lastAttackAt=game.time;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));if(victim.hp<=0)knockoutDefender(victim);game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,fromX:e.x,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else{const defender=game.militia.find(m=>m.hp>0);if(defender)defender.hp=Math.max(0,defender.hp-12);else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);}game.rangedBursts||=[];game.rangedBursts.push({at:game.time,from:e.y,fromX:e.x,archer:true});beep('shoot');}continue;}
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
  }
@@ -1057,6 +1086,13 @@ function drawPortrait(){
  drawStageDecor(true,t,state);drawPremiumAtmosphere(t,theme);battleGroundDetail(t,theme);
  // Castle stays at the bottom. The route and defenders remain clear above it.
  ctx.save();ctx.translate(112,341);ctx.scale(1.25,1.25);drawCastle(t);ctx.restore();
+ // Bodies fade on the battlefield instead of instantly disappearing.
+ for(const dead of game.fallenUnits||[]){
+  const age=t-dead.at;if(age<0||age>3)continue;
+  const pos=portraitEnemy({x:dead.x,y:dead.y,kind:'normal'});
+  ctx.save();ctx.globalAlpha=Math.min(.9,(3-age)/1.25);ctx.translate(pos.x,pos.y+10);
+  ctx.fillStyle=dead.side==='defender'?'#729ab2':'#9c6476';ctx.beginPath();ctx.ellipse(0,0,12,4,0,0,Math.PI*2);ctx.fill();ctx.restore();
+ }
  // Draw the real autonomous garrison: melee advance, archers remain behind.
  for(const m of game.militia||[]){
   // Stable world-to-screen transform. Target switches never teleport a unit.
@@ -1071,7 +1107,7 @@ function drawPortrait(){
   const px=m.renderX,py=m.renderY;
   ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
-  else heroSilhouette(px,py,'defender',1,t-(m.hitAt||-100));
+  else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),m.staggerUntil>t?.08:100);
   ctx.restore();
   if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
@@ -1123,10 +1159,11 @@ function drawPortrait(){
  for(const shot of game.shots){
   const dest=portraitEnemy(shot.target),ox=shot.originX??115,oy=shot.originY??252;
   const i=Math.round((oy+12-328)/9)*6+Math.round((ox-145)/19);
-  const start=ox===115?{x:240,y:620}:portraitDefender(Math.max(0,i));
+  const start=shot.arrow?portraitEnemy({x:ox,y:oy,kind:'normal'}):ox===115?{x:240,y:620}:portraitDefender(Math.max(0,i));
   const total=Math.hypot(shot.target.x-ox,shot.target.y-13-oy)||1;
   const progress=clamp(Math.hypot(shot.x-ox,shot.y-oy)/total,0,1);
-  rect(start.x+(dest.x-start.x)*progress,start.y+(dest.y-15-start.y)*progress,3,6,shot.color);
+  const bx=start.x+(dest.x-start.x)*progress,by=start.y+(dest.y-15-start.y)*progress;
+  ctx.save();ctx.strokeStyle=shot.color;ctx.lineWidth=shot.arrow?2.4:2;ctx.beginPath();ctx.moveTo(bx-7,by+4);ctx.lineTo(bx+4,by-5);ctx.stroke();ctx.restore();
  }
  for(const particle of game.particles){
   const p=particle.x<160?{x:particle.x+150,y:particle.y+385}:portraitEnemy({x:particle.x,y:particle.y,kind:'normal'});
