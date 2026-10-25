@@ -552,10 +552,36 @@ function update(dt){
   }
   // Archers stop and fire from long range; hero health is independent of castle HP.
   if(e.ranged&&e.x>335){e.x-=e.speed*dt;continue;}
-  if(e.ranged){e.projectileCooldown=(e.projectileCooldown??1.5)-dt;if(e.projectileCooldown<=0){e.projectileCooldown=2.5;e.lastAttackAt=game.time;const targets=game.defenders.filter(d=>d.hp>0);const victim=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;if(victim){victim.hp=Math.max(0,victim.hp-(game.shield>0?3:14));if(victim.hp<=0)knockoutDefender(victim);game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,fromX:e.x,seed:Math.random()});if(game.rangedBursts.length>12)game.rangedBursts.shift();}else{const defender=game.militia.find(m=>m.hp>0);if(defender)defender.hp=Math.max(0,defender.hp-12);else if(game.shield<=0)game.hp=Math.max(0,game.hp-8);}game.rangedBursts||=[];game.rangedBursts.push({at:game.time,from:e.y,fromX:e.x,archer:true});beep('shoot');}continue;}
+  if(e.ranged){
+   e.projectileCooldown=(e.projectileCooldown??1.5)-dt;
+   if(e.projectileCooldown<=0){
+    e.projectileCooldown=2.5;e.lastAttackAt=game.time;
+    const targets=game.defenders.filter(d=>d.hp>0);
+    const defender=targets.length?targets[Math.floor(Math.random()*targets.length)]:null;
+    const npc=!defender?(game.militia||[]).find(m=>m.hp>0):null;
+    game.siegeArrows||=[];
+    game.siegeArrows.push({at:game.time,duration:.7,fromX:e.x,fromY:e.y,target:defender||npc||null,kind:defender?'hero':npc?'npc':'castle',damage:game.shield>0?3:14,side:'sieger'});
+    if(game.siegeArrows.length>45)game.siegeArrows.shift();
+    beep('shoot');
+   }
+   continue;
+  }
   if(e.x>164+(e.kind==='dragon'?38:0))e.x-=e.speed*dt;
   else{e.attack-=dt;if(e.attack<=0){e.attack=e.kind==='dragon'?2.3:1.4;if(game.shield<=0){const absorbed=Math.min(game.barrier||0,e.damage);game.barrier=Math.max(0,(game.barrier||0)-absorbed);game.hp=Math.max(0,game.hp-(e.damage-absorbed));game.shake=.16;beep('hit');}else pop(145,295,'#8cc5ef',5);}}
  }
+ // Resolve enemy arrows ON IMPACT, not when an archer starts the shot.
+ game.siegeArrows||=[];
+ for(const arrow of game.siegeArrows){
+  if(arrow.resolved||game.time-arrow.at<arrow.duration)continue;
+  arrow.resolved=true;const victim=arrow.target;
+  if(arrow.kind==='hero'&&victim&&victim.hp>0&&game.defenders.includes(victim)){
+   victim.hp=Math.max(0,victim.hp-arrow.damage);victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=arrow.damage;
+   if(victim.hp<=0)knockoutDefender(victim);
+  }else if(arrow.kind==='npc'&&victim&&victim.hp>0&&game.militia.includes(victim)){
+   victim.hp=Math.max(0,victim.hp-arrow.damage);victim.staggerUntil=game.time+.2;
+  }else if(arrow.kind==='castle'&&game.shield<=0){game.hp=Math.max(0,game.hp-8);}
+ }
+ game.siegeArrows=game.siegeArrows.filter(a=>!a.resolved&&game.time-a.at<1.2);
  game.enemies=game.enemies.filter(e=>e.hp>0);
  for(const p of game.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=100*dt;}
  game.particles=game.particles.filter(p=>p.life>0);
@@ -1107,7 +1133,7 @@ function drawPortrait(){
   const px=m.renderX,py=m.renderY;
   ctx.save();ctx.translate(px,py);ctx.scale(.48,.48);ctx.translate(-px,-py);
   if(m.ranged)drawReadableArcher(px,py,t,false);
-  else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),m.staggerUntil>t?.08:100);
+  else heroSilhouette(px,py,'defender',1,t-(m.lastAttackAt??-100),(m.staggerUntil||0)>t?0.08:100);
   ctx.restore();
   if(m.hitAt&&t-m.hitAt<.24&&!m.ranged){smallImpact(px+13,py-13,'#c2e6ff',t-m.hitAt);const age=t-m.hitAt;ctx.save();ctx.globalAlpha=1-age/.24;ctx.strokeStyle='#c9ebff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(px+11,py-18,14,-1.2+age*4,.9+age*4);ctx.stroke();ctx.restore();}
  }
@@ -1154,6 +1180,14 @@ function drawPortrait(){
     text(Math.max(0,Math.ceil(((d.activeUntil||0)-Date.now())/1000))+'s',p.x,yy+12,light,9,'center');
    }
   }
+ }
+ for(const arrow of game.siegeArrows||[]){
+  const u=Math.max(0,Math.min(1,(t-arrow.at)/arrow.duration));
+  const start=portraitEnemy({x:arrow.fromX,y:arrow.fromY,kind:'normal'});
+  const victim=arrow.target;
+  const dest=arrow.kind==='hero'&&victim?portraitDefender(Math.max(3,game.defenders.indexOf(victim)+3)):arrow.kind==='npc'&&victim?{x:victim.renderX||200,y:victim.renderY||540}:{x:165,y:486};
+  const xx=start.x+(dest.x-start.x)*u,yy=start.y+(dest.y-start.y)*u-18*Math.sin(u*Math.PI);
+  ctx.save();ctx.strokeStyle='#ffd18c';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(xx-9,yy+5);ctx.lineTo(xx+4,yy-4);ctx.stroke();ctx.restore();
  }
  for(const burst of game.rangedBursts||[]){const age=game.time-burst.at;if(age<.8){const victim=game.defenders.find(d=>d.name===burst.target);if(victim){const idx=game.defenders.indexOf(victim),dest=portraitDefender(idx+3),start={x:420,y:510};const u=Math.min(1,age/.7);rect(start.x+(dest.x-start.x)*u,start.y+(dest.y-start.y)*u,12,3,'#ffce78');}}}
  for(const shot of game.shots){
