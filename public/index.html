@@ -519,6 +519,7 @@ function drawEnemy(e,x=e.x,y=e.y,portraitView=false){
    for(let i=0;i<4;i++)rect(26+Math.sin(e.phase+i*1.5)*40,30+Math.cos(e.phase+i*1.5)*29,5,5,'#ae9de2');ctx.restore();
   }else drawDragon({...e,x,y});return;
  }
+ if(e.ranged){drawReadableArcher(x,y,game.time,true);return;}
  const z=portraitView?(e.kind==='mini'?3.6:2.4):(e.kind==='mini'?3.2:2);
  if(e.skin==='frost'){
   // Low, four-legged ice wolf with a pointed muzzle and crystalline back.
@@ -941,6 +942,39 @@ function cinematicHeroHighlight(x,y,side,level){
  ctx.restore();
 }
 
+
+function drawTinyGuard(i,t){
+ // AI-controlled guards march from castle; viewer heroes remain full-sized.
+ const cycle=(t*.12+i*.19)%1;
+ const x=176+(i*24)+cycle*70,y=603-cycle*115+i*5;
+ ctx.save();ctx.translate(x,y);ctx.scale(.72,.72);
+ ctx.fillStyle='#0815219c';ctx.beginPath();ctx.ellipse(0,9,17,5,0,0,Math.PI*2);ctx.fill();
+ const bob=Math.sin(t*11+i)*2;ctx.translate(0,bob);
+ poly([[-9,-20],[-16,-7],[-10,5],[7,-8]],'#346077');
+ rect(-7,-28,14,9,'#9db5c3');rect(-8,-30,16,5,'#c8dfeb');
+ rect(-9,-21,18,21,'#527f94');rect(-5,-18,10,13,'#a4c7d3');
+ rect(-9,0,7,10,'#243d53');rect(3,0,7,10,'#243d53');
+ rect(-13,-19,5,17,'#95b9ca');rect(-17,-16,7,15,'#3a6887');
+ rect(12,-27,3,29,'#d4dbdf');rect(10,-29,7,5,'#f5e2a0');
+ ctx.restore();
+}
+function drawReadableArcher(x,y,t,enemy=true){
+ // Bow silhouette, hood, quiver, drawn arrow and projectile glow.
+ ctx.save();ctx.translate(x,y);
+ const breath=Math.sin(t*4+x*.02)*1.4;ctx.translate(0,breath);
+ const shade=enemy?'#542e43':'#3e6b7f',trim=enemy?'#e3a075':'#9de6de';
+ ctx.fillStyle='#10101cb0';ctx.beginPath();ctx.ellipse(0,7,21,5,0,0,Math.PI*2);ctx.fill();
+ poly([[-13,-35],[1,-43],[15,-34],[18,5],[-18,5]],shade);
+ poly([[-12,-30],[0,-39],[12,-30],[7,-18],[-7,-18]],'#806779');
+ rect(-7,-27,14,8,'#2a2639');rect(-4,-24,3,3,'#f7d7a3');rect(3,-24,3,3,'#f7d7a3');
+ rect(-9,-17,18,20,'#785565');rect(-5,-15,10,15,'#ac8591');rect(-8,3,6,9,'#302c3e');rect(3,3,6,9,'#302c3e');
+ rect(12,-26,9,23,'#473a38');for(let j=0;j<3;j++){rect(14+j*2,-32+j*3,2,10,'#d7c08f');}
+ ctx.strokeStyle=trim;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-18,-30);ctx.quadraticCurveTo(-32,-15,-18,5);ctx.stroke();
+ ctx.strokeStyle='#f9e7c5';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-18,-30);ctx.lineTo(-18,5);ctx.stroke();
+ rect(-26,-15,32,2,'#e4d5a3');poly([[8,-14],[0,-19],[0,-10]],'#fff2c9');
+ ctx.restore();
+}
+
 function drawPortrait(){
  const t=game.time,state=stageState(),theme=state.theme;ctx.save();
  cinematicBackground(true,t,theme,state.index);cinematicFloor(true,t,state.index);
@@ -962,7 +996,7 @@ function drawPortrait(){
   rect(p.x-14,p.y+8,e.kind==='dragon'?55:28,4,'#263d35');
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {if(e.siegerHero)heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100),t-(e.lastHitAt??-100));else drawEnemy(e,p.x,p.y,true);}
   if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
-  if(e.ranged){rect(p.x-5,p.y-31,10,15,'#733f28');rect(p.x-3,p.y-33,6,4,'#ffe09d');text('ARCHER 🏹',p.x,p.y-47,'#ffe1a1',12,'center');}
+  // Bow, quiver and projectile are drawn by drawEnemy for ranged units.
   if(e.siegerHero){
    const attackAge=t-(e.lastAttackAt??-100);
    if(attackAge>=0&&attackAge<.19){const k=attackAge/.19;ctx.save();ctx.globalAlpha=1-k;ctx.strokeStyle='#f19b9b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x+9,p.y-21,19,-1.8+k*1.6,-.4+k*1.6);ctx.stroke();ctx.restore();}
@@ -979,6 +1013,7 @@ function drawPortrait(){
   const [armor,light]=palettes[tier];
   if(d&&(tier>0||elite)){ctx.save();ctx.globalAlpha=.22+.1*Math.sin(t*5);ctx.fillStyle=elite?'#ff67c5':tier>=3?'#ffd26e':'#65cafa';ctx.beginPath();ctx.arc(p.x,p.y-12,16+tier*3,0,Math.PI*2);ctx.fill();ctx.restore();}
   const attackAge=t-(d?.lastAttackAt??-100);const attacking=attackAge>=0&&attackAge<.16;if(attacking){ctx.save();ctx.globalAlpha=1-attackAge/.16;ctx.strokeStyle='#a0d7e4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+10,p.y-19,13,-1.4,.3);ctx.stroke();ctx.restore();}
+  if(i<3){drawTinyGuard(i,t);continue;}
   heroSilhouette(p.x,p.y,'defender',lv,attackAge,t-(d?.lastSiegeHitAt??-100));
   if(d){
    if(d.lastSiegeHitAt!=null)smallImpact(p.x,p.y-23,'#f590aa',t-d.lastSiegeHitAt);if(d.lastSiegeHitAt!=null&&t-d.lastSiegeHitAt<.4){const age=t-d.lastSiegeHitAt;ctx.save();ctx.globalAlpha=1-age/.4;text('-'+(d.lastSiegeDamage||0),p.x,p.y-53-age*18,'#ff9ca9',15,'center');ctx.restore();}
