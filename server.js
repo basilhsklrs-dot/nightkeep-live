@@ -46,7 +46,7 @@ export class Normalizer {
     }
     const user = username(d);
     const displayName = clean(d.user?.nickname || d.user?.displayName || d.nickname || user, 64) || user;
-    if (type === 'chat'){const command=clean(d.content??d.comment??d.text??d.message??'',64).trim().toLowerCase();if(/^(1|2|defender|defend|sieger|siege|attacker|attack|team defender|team sieger)$/.test(command))return {type:'team',user,displayName,team:command==='2'||/sieg|attack/.test(command)?'sieger':'defender'};return {type:'join',user,displayName};}
+    if (type === 'chat'){const command=clean(d.content??d.comment??d.text??d.message??'',64).trim().toLowerCase();return {type:'chat',user,displayName,command};}
     if (type === 'join') return {type:'join',user,displayName};
     if (type === 'like') return { type: 'like', user, displayName, count: positive(d.count ?? d.likeCount) };
     if (type === 'follow') return { type: 'follow', user, displayName, count: 1 };
@@ -81,7 +81,7 @@ export class Normalizer {
 export async function startServer(env = process.env) {
   const { WebSocketServer, WebSocket } = await import('ws');
   const demo = env.DEMO_MODE === 'true' || process.argv.includes('--demo');
-  const streamer = clean(env.TIKTOK_USERNAME || '').replace(/^@/, '');
+  const streamer = clean(env.TIKTOK_USERNAME || 'nightkeep.live').replace(/^@/, '');
   if (!demo && !/^[\w.]{2,64}$/.test(streamer)) throw Error('Set TIKTOK_USERNAME in .env (without @), or run npm run demo.');
   // Outbound messages are disabled unless the creator explicitly configures an authenticated session.
   const chatEnabled = env.TIKTOK_CHAT_ENABLED === 'true';
@@ -140,6 +140,7 @@ export async function startServer(env = process.env) {
       catch { res.writeHead(500); res.end('Frontend missing'); }
       return;
     }
+    if (req.method === 'GET' && path === '/bumper.js') { try { const data=await readFile(new URL('./public/bumper.js',import.meta.url)); res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data); } catch {res.writeHead(404);res.end('Not found');}return; }
     if (req.method === 'GET' && (path === '/champion.js' || path === '/assets/nightkeep-characters.svg' || path === '/assets/nightkeep-action-frames.svg')) {
       try {
         const asset = path === '/champion.js'
@@ -240,7 +241,7 @@ export async function startServer(env = process.env) {
       current.on(ControlEvent.ERROR, () => { if (valid()) console.warn('TikTok connection error; monitoring/retrying.'); });
       current.on(ControlEvent.DISCONNECTED, () => { if (valid()) retry(); });
       current.on(WebcastEvent.STREAM_END, () => { if (valid()) { void dispose(); retry(); } });
-      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['MEMBER','join'],['CHAT','chat']]) {
+      for (const [key, type] of [['LIKE','like'],['FOLLOW','follow'],['GIFT','gift'],['MEMBER','join'],['CHAT','chat'],['ROOM_USER','join']]) {
         current.on(WebcastEvent[key], d => { if (!valid()) return; const event=normalizer.normalize(type,d,room); if(type==='chat'){const raw=clean(d.content??d.comment??d.text??d.message??'',64).trim();console.info(JSON.stringify({event:'chat_received',user:username(d),choice:/^[12]$/.test(raw)?raw:null,recognized:event?.type==='team',team:event?.team||null,hasText:!!raw}));} if(event?.type==='team')console.info(JSON.stringify({event:'team_selection',user:event.user,team:event.team}));if(event?.type==='join')console.info(JSON.stringify({event:'viewer_join_received',user:event.user,source:type}));emit(event); });
       }
       let deadline;
