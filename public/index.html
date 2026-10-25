@@ -100,6 +100,7 @@ function restore(){
    if(!Array.isArray(g.defenders)||!Array.isArray(g.enemies)||!Number.isFinite(g.hp)||!Number.isFinite(g.time))throw Error('bad save');
    game={...game,...g,players:(g.players||[]).slice(-500),shots:[],particles:[],jobs:(g.jobs||[]).slice(0,120),defenders:g.defenders.slice(-MAX_DEFENDERS),enemies:g.enemies.slice(0,MAX_ENEMIES)};
    instance=s.instance||'';lastSeq=Number(s.lastSeq)||0;savedSource=s.source;
+   const kh=game.heroes?.katitrexei;if(kh&&kh.level===30&&kh.powerBonus===350&&kh.member&&kh.following){Object.assign(kh,{xp:0,level:1,powerBonus:0,member:false,following:false,knockedOut:false});const kd=game.defenders.find(d=>d.name==='katitrexei');if(kd)Object.assign(kd,{xp:0,level:1,powerBonus:0,member:false,following:false,maxHp:100,hp:100});const ke=game.enemies.find(e=>e.siegerHero&&e.user==='katitrexei');if(ke)Object.assign(ke,{siegerLevel:1,siegerMember:false,powerBonus:0});}
   }
  }catch{game=fresh()}
 }
