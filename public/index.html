@@ -88,7 +88,7 @@ function advanceStage(dt){
  game.journeyTime=(game.journeyTime||0)+dt*(demo?3:1);
  const state=stageState();if(state.wave!==waveBanner.wave||state.index!==waveBanner.stage){waveBanner={until:Date.now()+2700,wave:state.wave,stage:state.index};}if(state.cleared!==(game.stageSeen||0)){game.stageSeen=state.cleared;stageBanner={until:Date.now()+4000,index:state.index,cycle:state.cycle};beep('stage');visualMoment('✦ NEW STAGE ✦',state.theme.name,state.theme.accent,4500);feed('NIGHTKEEP',`Νέα πίστα: ${state.theme.name} · Κύκλος ${state.cycle}`,state.theme.accent);}
 }
-function fresh(){return {militia:[],version:1,journeyTime:0,stageSeen:0,combos:[],barrier:0,barrierTime:0,players:[],hp:1000,shield:0,boost:0,time:0,spawn:1,attack:0,round:1,wave:1,best:1,kills:0,deadUntil:0,defenders:[],enemies:[],shots:[],particles:[],jobs:[],followIds:[],flash:0,shake:0};}
+function fresh(){return {militia:[],lastStandUntil:0,lastStandUsed:false,volleyAt:0,difficultyFactor:1,version:1,journeyTime:0,stageSeen:0,combos:[],barrier:0,barrierTime:0,players:[],hp:1000,shield:0,boost:0,time:0,spawn:1,attack:0,round:1,wave:1,best:1,kills:0,deadUntil:0,defenders:[],enemies:[],shots:[],particles:[],jobs:[],followIds:[],flash:0,shake:0};}
 function defaultUrl(){ if(DEFAULT_WS_URL)return DEFAULT_WS_URL; return location.protocol==='http:'||location.protocol==='https:' ? `${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws` : ''; }
 function validUrl(value){const u=new URL(value);if(!['ws:','wss:'].includes(u.protocol))throw Error('Χρειάζεται ws:// ή wss://');if(location.protocol==='https:'&&u.protocol!=='wss:')throw Error('Σε HTTPS χρειάζεται wss://');if(u.username||u.password)throw Error('Μη χρησιμοποιείς credentials στο URL');return u.toString();}
 function restore(){
@@ -398,8 +398,18 @@ function spawn(kind='normal',weight=1,user='',skin=enemyDefaults[kind],comboId='
  game.enemies.push({ranged:kind==='fast',projectileCooldown:1.5,kind,user,skin,comboId,hpBonus,baseMaxHp:hp*scale*weight,x:kind==='dragon'?rnd(510,565):rnd(490,530),y:kind==='dragon'?rnd(299,321):rnd(346,390),hp:hp*scale*weight*power,maxHp:hp*scale*weight*power,speed,damage:damage*Math.sqrt(weight),attack:0,phase:rnd(0,7),weight});return true;
 }
 function resetRound(){
- const old=game;game=fresh();Object.assign(game,{retention:old.retention,heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,siegeBoost:old.siegeBoost,jobs:old.jobs,boost:old.boost,shield:old.shield});
+ const old=game;game=fresh();game.roundStats={defenders:(old.players||[]).filter(p=>(old.teams||{})[p.user]!=='sieger').sort((a,b)=>(b.kills||0)-(a.kills||0)).slice(0,3).map(p=>({name:displayHeroName(p.user),kills:p.kills||0,damage:Math.round(p.damage||0)})),siegers:(old.players||[]).filter(p=>(old.teams||{})[p.user]==='sieger').sort((a,b)=>(b.siegeDamage||0)-(a.siegeDamage||0)).slice(0,3).map(p=>({name:displayHeroName(p.user),kills:p.siegeKOs||0,damage:Math.round(p.siegeDamage||0)})),until:Date.now()+8000};Object.assign(game,{retention:old.retention,heroes:old.heroes||{},round:old.round+1,journeyTime:old.journeyTime||0,stageSeen:old.stageSeen||0,best:old.best,kills:old.kills,defenders:old.defenders,followIds:old.followIds,combos:old.combos,players:old.players,teams:old.teams,displayNames:old.displayNames,engagement:old.engagement,siegeBoost:old.siegeBoost,jobs:old.jobs,boost:old.boost,shield:old.shield});
  const dp=(old.players||[]).filter(p=>(old.teams||{})[p.user]!=='sieger').sort((a,b)=>(b.kills||0)-(a.kills||0))[0],sp=(old.players||[]).filter(p=>(old.teams||{})[p.user]==='sieger').sort((a,b)=>(b.likes||0)-(a.likes||0))[0];game.featureAnnouncement={title:'🏆 ROUND MVP',detail:'🛡 '+(dp?displayHeroName(dp.user):'—')+'   ⚔ '+(sp?displayHeroName(sp.user):'—'),until:Date.now()+2800};if(dp)noteLegend(dp.user,'DEFENDER MVP',dp.kills||0);if(sp)noteLegend(sp.user,'SIEGER MVP',sp.likes||0);feed('NIGHTKEEP','The castle has respawned. The defense continues.');save();
+}
+
+function updateNightkeepSystems(dt){
+ if(game.hp<240&&!game.lastStandUsed){game.lastStandUsed=true;game.lastStandUntil=game.time+30;game.featureAnnouncement={title:'⚔ LAST STAND',detail:'30 SECONDS — DEFEND THE KEEP!',until:Date.now()+3600};beep('boss');}
+ if(game.lastStandUntil>game.time){game.boost=Math.max(game.boost||0,20+Math.sin(game.time*3)*8);}
+ const active=(game.militia||[]).filter(m=>m.hp>0),hostile=(game.enemies||[]).filter(e=>e.hp>0),rear=active.filter(m=>m.ranged);
+ if(rear.length>=2&&hostile.length>=3&&game.time>(game.volleyAt||0)){game.volleyAt=game.time+19;for(const m of rear){m.cooldown=Math.min(m.cooldown||0,.15+Math.random()*.5);m.volleyGlowUntil=game.time+1.2;}game.featureAnnouncement={title:'🏹 ARCHER VOLLEY',detail:'DEFENDERS FIRE!',until:Date.now()+1200};}
+ if(hostile.length>=5&&game.time>(game.chargeAt||0)){game.chargeAt=game.time+27;for(const e of hostile)if(!e.ranged&&!e.worldBoss)e.chargeUntil=game.time+3;}
+ if(hostile.length>4&&active.filter(m=>!m.ranged).length<2)for(const m of rear)m.retreatUntil=game.time+2.3;
+ if((game.wave||1)!==(game.balancedWave||0)){const hpFraction=Math.max(0,Math.min(1,(game.hp||0)/1000)),siegePressure=hostile.length/Math.max(1,active.length+game.defenders.length);game.difficultyFactor=Math.max(.8,Math.min(1.35,1+(hpFraction-.55)*.28-(siegePressure-1)*.035));game.balancedWave=game.wave;}
 }
 function update(dt){
  if(game.enemies.length){const now=Date.now();game.enemies=game.enemies.filter(e=>!e.siegerHero || (e.hp>0&&(e.activeUntil||0)>now));}
@@ -409,9 +419,10 @@ function update(dt){
   if(Date.now()>=game.deadUntil)resetRound();return;
  }
  engagementTick();engagementExtras(dt);retentionTick();
+ updateNightkeepSystems(dt);
  game.barrierTime=Math.max(0,(game.barrierTime||0)-dt);if(!game.barrierTime)game.barrier=0;game.healGlow=Math.max(0,(game.healGlow||0)-dt);game.time+=dt;advanceStage(dt);game.wave=1+Math.floor(game.time/35);game.best=Math.max(game.best,game.wave);
  game.boost=Math.max(0,game.boost-dt*(4+game.boost*.08));game.siegeBoost=Math.max(0,(game.siegeBoost||0)-dt*(4+(game.siegeBoost||0)*.08));game.shield=Math.max(0,game.shield-dt);game.flash=Math.max(0,game.flash-dt);game.shake=Math.max(0,game.shake-dt*2);
- game.spawn-=dt;if(game.spawn<=0){game.spawnNumber=(game.spawnNumber||0)+1;spawn(game.spawnNumber%5===0?'fast':'normal');game.spawn=Math.max(.6,3.2-game.wave*.13);}
+ game.spawn-=dt;if(game.spawn<=0){game.spawnNumber=(game.spawnNumber||0)+1;spawn(game.spawnNumber%5===0?'fast':'normal');game.spawn=Math.max(.65,(3.2-game.wave*.13)/(game.difficultyFactor||1));}
  if(game.jobs.length&&game.enemies.length<MAX_ENEMIES){
   const job=game.jobs[0],weight=Math.max(1,Math.ceil(job.count/(job.kind==='fast'?30:5)));
   if(spawn(job.kind,weight,job.user||'Κοινότητα',job.skin||enemyDefaults[job.kind],job.comboId||'',job.hpBonus||0)){job.count-=weight;if(job.count<=0)game.jobs.shift();}
@@ -444,7 +455,7 @@ function update(dt){
    continue;
   }
   const underPressure=m.ranged&&game.enemies.some(e=>e.hp>0&&!e.ranged&&e.x-m.x<67&&Math.abs(e.y-m.y)<30);
-  const desiredX=m.ranged?(underPressure?150:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
+  const desiredX=m.ranged?(underPressure||m.retreatUntil>game.time?145:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(359,Math.min(384,foe.y));
   const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
   const prevX=m.x;
   m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
@@ -471,7 +482,7 @@ function update(dt){
     if(m.ranged){
      if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:e,damage:6,owner:'Φρουρά',color:'#a8eafb',life:2,arrow:true,launchAt:game.time});
     }else if(Math.hypot(e.x-m.x,(e.y-m.y)*1.65)<40){
-     if(Math.random()<.07){e.staggerUntil=game.time+.12;continue;}e.hp-=9;e.lastHitOwner='Φρουρά';e.lastHitAt=game.time;e.lastHitDamage=9;e.attackPulse=game.time;e.staggerUntil=game.time+.22;pop(e.x,e.y-10,'#cfe7f8',4);
+     if(Math.random()<.07){e.staggerUntil=game.time+.12;continue;}const critical=Math.random()<.09;e.hp-=critical?15:9;e.lastHitOwner='Φρουρά';e.lastHitAt=game.time;e.lastHitDamage=critical?15:9;e.criticalHit=critical;e.attackPulse=game.time;e.staggerUntil=game.time+.22;pop(e.x,e.y-10,'#cfe7f8',4);
     }
     m.hitAt=game.time;m.combatState='recover';
    }
@@ -518,7 +529,7 @@ function update(dt){
    const guard=game.militia.find(m=>!m.ranged&&m.hp>0&&Math.abs(m.x-e.x)<40&&Math.abs(m.y-e.y)<28);
    if(guard){
     e.attack=(e.attack||0)-dt;
-    if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
+    if(e.attack<=0){e.attack=1.2;const blocked=guard.blockUntil>game.time;const damage=Math.max(3,(e.damage||15)*.3)*(blocked?.65:1)*(e.chargeUntil>game.time?1.2:1);guard.hp=Math.max(0,guard.hp-damage);guard.lastDamage=Math.ceil(damage);guard.lastDamageAt=game.time;guard.staggerUntil=game.time+.25;e.lastAttackAt=game.time;e.attackPulse=game.time;pop(guard.x,guard.y-8,'#ffab94',3);}
     continue;
    }
   }
@@ -533,7 +544,7 @@ function update(dt){
      e.attack=1.65/(1+(game.siegeBoost||0)/100+Math.floor((e.siegerLevel||1)/5)*.08);e.lastAttackAt=game.time;
      const victim=alive[Math.floor(Math.random()*alive.length)];
      const damage=Math.max(7,Math.min(110,9+(e.siegerLevel||1)*3+(e.powerBonus||0)*.12));
-     const actual=game.shield>0?Math.max(2,damage*.3):damage;victim.hp=Math.max(0,victim.hp-actual);player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+Math.min(actual,victim.hp+actual);if(victim.hp<=0)player(e.user).siegeKOs=(player(e.user).siegeKOs||0)+1;victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);if(victim.hp<=0){const record=heroRecord(victim.name);record.revengeTarget=e.user;record.revengeUntil=Date.now()+180000;knockoutDefender(victim);noteLegend(e.user,'KO',e.siegerLevel||1);}
+     const crit=Math.random()<.08;const actual=(game.shield>0?Math.max(2,damage*.3):damage)*(crit?1.45:1);victim.hp=Math.max(0,victim.hp-actual);player(e.user).siegeDamage=(player(e.user).siegeDamage||0)+Math.min(actual,victim.hp+actual);if(victim.hp<=0)player(e.user).siegeKOs=(player(e.user).siegeKOs||0)+1;victim.lastSiegeHitAt=game.time;victim.lastSiegeDamage=Math.round(actual);victim.lastCriticalAt=crit?game.time:-100;if(victim.hp<=0){const record=heroRecord(victim.name);record.revengeTarget=e.user;record.revengeUntil=Date.now()+180000;knockoutDefender(victim);noteLegend(e.user,'KO',e.siegerLevel||1);}
      game.rangedBursts||=[];game.rangedBursts.push({at:game.time,target:victim.name,from:e.y,seed:Math.random(),siege:true});
      if(game.rangedBursts.length>20)game.rangedBursts.shift();
      if(victim.hp<=0){feed(displayHeroName(e.user),'KO '+displayHeroName(victim.name),'#f39daa');pop(180,320,'#ff8a9d',10);}
@@ -611,6 +622,7 @@ function tower(x,y,w,h){
  rect(x+w/2-4,y+16,8,18,'#25293e');rect(x+w/2-2,y+19,4,10,'#f1c477');rect(x+w/2+1,y+19,1,10,'#9e7058');
 }
 function drawCastle(t){
+ const castleDamage=1-Math.max(0,Math.min(1,game.hp/1000));
  cinematicCastleDetails(t);
  // Stonework glow and ambient keep silhouette.
  ctx.save();ctx.globalAlpha=.10+.04*Math.sin(t*2);rect(54,260,68,60,'#ffcd88');ctx.restore();
@@ -620,6 +632,9 @@ function drawCastle(t){
  rect(88,181,2,29,'#9e91a8');poly([[90,181],[109,185+Math.sin(t*2)*2],[90,195]],'#b37b94');rect(90,184,3,7,'#edb788');
  rect(37,328,108,4,'#828195');rect(30,332,123,5,'#4e5664');
  for(const [x,y] of [[34,306],[142,309]]){rect(x,y,3,15,'#65483e');rect(x-1,y-7,5,8,'#b56640');rect(x,y-10+Math.sin(t*12)*2,3,9,'#f5c579');}
+ if(castleDamage>.2){ctx.save();ctx.strokeStyle='#171723';ctx.lineWidth=1+castleDamage*2;for(let k=0;k<Math.ceil(castleDamage*11);k++){const px=51+(k*29)%78,py=252+(k*17)%73;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+4,py+8);ctx.lineTo(px-1,py+14);ctx.stroke();}ctx.restore();}
+ if(castleDamage>.48){for(let j=0;j<Math.ceil(castleDamage*7);j++){const xx=57+j*11,yy=251+j%3*16;ctx.save();ctx.globalAlpha=.23+.16*Math.sin(t*2+j);ctx.fillStyle='#63616b';ctx.beginPath();ctx.arc(xx+Math.sin(t+j)*8,yy-((t*11+j*17)%46),5+castleDamage*9,0,Math.PI*2);ctx.fill();ctx.restore();}}
+ if(castleDamage>.75){rect(77,286,28,5,'#ec713a');rect(85,277,7,13,'#ffb562');}
  if(game.shield>0){ctx.strokeStyle='#9edbe3';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.beginPath();ctx.ellipse(90,273,80,94,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);if(!portrait)text(`SHIELD ${Math.ceil(game.shield)}s`,90,170,'#9edbe3',8,'center');}
 }
 function drawDragon(e){
@@ -1131,6 +1146,8 @@ function drawPortrait(){
   ctx.save();ctx.globalAlpha=Math.min(.9,(3-age)/1.25);ctx.translate(pos.x,pos.y+10);
   ctx.fillStyle=dead.side==='defender'?'#729ab2':'#9c6476';ctx.beginPath();ctx.ellipse(0,0,12,4,0,0,Math.PI*2);ctx.fill();ctx.restore();
  }
+ if(game.roundStats&&Date.now()<game.roundStats.until){ctx.save();rect(112,345,260,74,'#101827db');text('✦ HALL OF LEGENDS ✦',242,361,'#ffe3a2',14,'center');for(let k=0;k<2;k++){const data=k?game.roundStats.siegers:game.roundStats.defenders,winner=data[0];text((k?'⚔ ':'🛡 ')+(winner?winner.name+' · '+winner.kills+' KOs':'—'),240,380+k*18,k?'#ffbecd':'#b3edf6',12,'center');}ctx.restore();}
+ if(game.lastStandUntil>t){ctx.save();ctx.globalAlpha=.26+.12*Math.sin(t*8);ctx.strokeStyle='#ff9564';ctx.lineWidth=4;ctx.strokeRect(5,300,470,335);ctx.restore();text('LAST STAND  '+Math.ceil(game.lastStandUntil-t)+'s',240,306,'#ffd49e',14,'center');}
  // Draw the real autonomous garrison: melee advance, archers remain behind.
  for(const m of game.militia||[]){
   // Stable world-to-screen transform. Target switches never teleport a unit.
@@ -1157,7 +1174,7 @@ function drawPortrait(){
   if(e.attackPulse&&t-e.attackPulse<.21){smallImpact(p.x-8,p.y-12,'#f7b1a2',t-e.attackPulse);}
 
   if(e.worldBoss){drawWorldBoss(e,p.x,p.y);rect(82,307,316,32,'#281422');text('☠ WORLD BOSS ☠',240,329,'#fff0af',20,'center');rect(94,344,292,10,'#231b2d');rect(96,346,288*Math.max(0,e.hp/e.maxHp),6,'#ff4591');}else {if(e.siegerHero){if(e.combatClass==='archer'){ctx.save();ctx.translate(p.x,p.y);ctx.scale(.63,.63);ctx.translate(-p.x,-p.y);drawReadableArcher(p.x,p.y,t,true);ctx.restore();}else heroSilhouette(p.x,p.y,'sieger',e.siegerLevel||1,t-(e.lastAttackAt??-100),t-(e.lastHitAt??-100));}else drawEnemy(e,p.x,p.y,true);}
-  if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text('-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,'#fff5a5',16,'center');ctx.restore();}
+  if(e.lastHitAt!=null){smallImpact(p.x,p.y-26,'#ffe0a0',t-e.lastHitAt);}if(e.lastHitAt!=null&&t-e.lastHitAt<.38){ctx.save();ctx.globalAlpha=1-(t-e.lastHitAt)/.38;text((e.criticalHit?'CRIT ':'')+'-'+(e.lastHitDamage||0),p.x,p.y-54-(t-e.lastHitAt)*25,e.criticalHit?'#ffb26e':'#fff5a5',16,'center');ctx.restore();}
   // Bow, quiver and projectile are drawn by drawEnemy for ranged units.
   if(e.siegerHero){
    const attackAge=t-(e.lastAttackAt??-100);
