@@ -16,16 +16,16 @@ export function separate(units, dt, {radius=19,strength=12,bounds=[334,390]}={})
  const alive=units.filter(u=>u&&u.hp>0&&!u.boss);
  const corrections=new Map();
  for(const a of alive){
-  let push=0;
+  let push=0, pushX=0;
   for(const b of alive){
    if(a===b)continue;
    const dx=a.x-b.x,dy=a.y-b.y;
    const d=Math.hypot(dx,dy);
-   if(d<radius)push+=(dy||(((a.id||0)>(b.id||0))?1:-1))*(radius-d)/Math.max(d,1);
+   if(d<radius){const sign=String(a.id??alive.indexOf(a))>String(b.id??alive.indexOf(b))?1:-1;const depth=Math.max(.01,d);push+=(Math.abs(dy)<.001?sign:dy/depth)*(radius-d);pushX+=(Math.abs(dx)<.001?sign:dx/depth)*(radius-d); }
   }
-  corrections.set(a,clamp(push*dt*strength,-strength*dt,strength*dt));
+  corrections.set(a,{dy:clamp(push*dt*strength,-strength*dt,strength*dt),dx:clamp(pushX*dt*strength,-strength*dt,strength*dt)});
  }
- for(const [a,d] of corrections)a.y=clamp(a.y+d,bounds[0],bounds[1]);
+ for(const [a,d] of corrections){a.y=clamp(a.y+d.dy,bounds[0],bounds[1]);a.x+=d.dx;}
 }
 export function stepCombat(state,dt,{rng=Math.random}={}){
  const events=[],alive=state.units.filter(u=>u.hp>0),t=state.time+dt;
@@ -39,10 +39,10 @@ export function stepCombat(state,dt,{rng=Math.random}={}){
     if(target&&target.hp>0&&distance(u,target)<=u.range+5){
      const critical=rng()< (u.critChance||0);
      const damage=Math.max(1,Math.round((u.damage||8)*(critical?1.5:1)));
-     target.hp=Math.max(0,target.hp-damage);
-     target.hitUntil=t+.25; target.animation='hit';
+     if(u.ranged){(state.projectiles ||= []).push({source:u.id,target:target.id,x:u.x,y:u.y,damage,critical,speed:u.projectileSpeed||260,life:3});events.push({type:'projectile',source:u.id,target:target.id});}else target.hp=Math.max(0,target.hp-damage);
+     if(!u.ranged){target.hitUntil=t+.25; target.animation='hit';
      events.push({type:'impact',source:u.id,target:target.id,damage,critical});
-     if(target.hp===0){target.animation='death';events.push({type:'death',target:target.id,killer:u.id});}
+     if(target.hp===0){target.animation='death';events.push({type:'death',target:target.id,killer:u.id});}}
     }else events.push({type:'miss',source:u.id});
     u.windup=0;u.animation='recover';u.animationUntil=t+.18;
    }
@@ -72,6 +72,7 @@ export function stepCombat(state,dt,{rng=Math.random}={}){
    events.push({type:'windup',source:u.id,target:target.id});
   }else u.animation=(u.hitUntil||0)>t?'hit':'guard';
  }
+ for(const p of (state.projectiles||[])){if(p.life<=0)continue;p.life-=dt;const target=state.units.find(v=>v.id===p.target&&v.hp>0);if(!target){p.life=0;continue;}const d=distance(p,target),travel=p.speed*dt;if(d<=travel+5){const actual=Math.min(target.hp,p.damage);target.hp=Math.max(0,target.hp-p.damage);target.animation=target.hp?'hit':'death';target.hitUntil=t+.25;events.push({type:'impact',source:p.source,target:p.target,damage:actual,critical:p.critical});if(!target.hp)events.push({type:'death',target:p.target,killer:p.source});p.life=0;}else{p.x+=(target.x-p.x)*travel/d;p.y+=(target.y-p.y)*travel/d;}}state.projectiles=(state.projectiles||[]).filter(p=>p.life>0);
  separate(alive,dt);
  state.time=t;
  return events;
