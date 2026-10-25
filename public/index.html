@@ -606,7 +606,7 @@ function retentionState(){
  return r;
 }
 function noteLegend(id,kind,score){
- if(!id||id==='Φρουρά')return;
+ if(!id||id==='Φρουρά'||String(id).replace(/^@/,'').toLowerCase()==='katitrexei')return;
  const r=retentionState();const name=displayHeroName(id).slice(0,32);
  const entry={id,name,kind,score:Math.floor(Number(score)||0),at:Date.now()};
  r.legends.unshift(entry);r.legends=r.legends.slice(0,12);
@@ -700,7 +700,7 @@ function drawEngagementHud(){
 }
 
 function heroTier(lv){return lv>=30?4:lv>=20?3:lv>=10?2:lv>=5?1:0}
-function topHeroIds(side){return (game.players||[]).map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
+function topHeroIds(side){return (game.players||[]).filter(p=>String(p.user||'').replace(/^@/,'').toLowerCase()!=='katitrexei').map(p=>({id:p.user,score:side==='siege'?(p.hostile||0)*20:(p.kills||0)*20+(p.support||0)*12+Math.floor((p.likes||0)/10)})).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,3).map(p=>p.id)}
 function drawLiveLeaderboards(){
  const def=topHeroIds('defense'),siege=topHeroIds('siege');
  for(const [x,label,ids,color] of [[10,'🛡 TOP DEFENDERS',def,'#a8eac9'],[246,'⚔ TOP SIEGERS',siege,'#ffb6cb']]){
@@ -983,7 +983,7 @@ try{wsUrl=validUrl(store.get(WSKEY)||defaultUrl())}catch{notice('Άνοιξε τ
 restore();
 // One-time live TOP reset on the first refresh after this release.
 // Preserve heroes, XP, teams and membership perks; only ranking statistics restart.
-const TOP_EPOCH='nightkeep-top-reset-20261025-001';
+const TOP_EPOCH='nightkeep-top-reset-20261025-002';
 if(store.get('nightkeep.topEpoch')!==TOP_EPOCH){
  game.players=[];
  if(game.retention){game.retention.legends=[];game.retention.focus='';game.retention.focusAt=0;}
