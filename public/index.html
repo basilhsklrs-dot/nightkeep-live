@@ -1459,17 +1459,18 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  ctx.restore();
  return true;
 }
+// Player differentiation uses elite armor and role colors; scale stays close to NPC units.
 const nkOldSilhouette=heroSilhouette;
 heroSilhouette=function(x,y,team,level,attackAge,hitAge=100){
  const attacking=attackAge>=0&&attackAge<.23;
  const hit=hitAge>=0&&hitAge<.22;
  const id=team==='sieger'?(level>=8?5:2):(level>=8?4:0);
- if(!nkArt(id,x,y,level>=20?1.2:1,attacking?'attack':hit?'hit':'idle',team==='sieger'?-1:1))
+ if(!nkArt(id,x,y,level>=20?.43:.39,attacking?'attack':hit?'hit':'idle',team==='sieger'?-1:1))
   return nkOldSilhouette(x,y,team,level,attackAge,hitAge);
 };
 const nkOldArcher=drawReadableArcher;
 drawReadableArcher=function(x,y,t,enemy=true){
- if(!nkArt(enemy?3:1,x,y,.98,Math.sin(t*1.7+x*.02)>.6?'attack':'idle',enemy?-1:1))
+ if(!nkArt(enemy?3:1,x,y,.39,Math.sin(t*1.7+x*.02)>.6?'attack':'idle',enemy?-1:1))
   return nkOldArcher(x,y,t,enemy);
 };
 const nkOldEnemy=drawEnemy;
@@ -1478,18 +1479,18 @@ drawEnemy=function(e,x=e.x,y=e.y,portraitView=false){
  const idx=e.personalChampion?7:e.worldBoss?6:e.siegerHero&&e.siegerLevel>=8?5:e.ranged?3:2;
  const attacking=e.lastAttackAt!=null&&game.time-e.lastAttackAt<.24;
  const hit=e.lastHitAt!=null&&game.time-e.lastHitAt<.22;
- if(!nkArt(idx,x,y,e.worldBoss?1.9:e.kind==='mini'?1.18:1,attacking?'attack':hit?'hit':'walk',-1))
+ if(!nkArt(idx,x,y,e.worldBoss?.95:e.personalChampion?.52:e.siegerHero?.43:e.kind==='mini'?.58:.40,attacking?'attack':hit?'hit':'walk',-1))
   return nkOldEnemy(e,x,y,portraitView);
 };
 const nkOldWorldBoss=drawWorldBoss;
 drawWorldBoss=function(e,x,y){
  if(!nkAtlasReady)return nkOldWorldBoss(e,x,y);
  if(!e.bossEntryShown){e.bossEntryShown=true;game.featureAnnouncement={title:'☠ WORLD BOSS',detail:'HOLD THE LINE!',until:Date.now()+2700};}
- nkArt(6,x,y,2.15,'special',-1);
+ nkArt(6,x,y,1.05,'special',-1);
 };
 const nkOldSprite=sprite;
 sprite=function(data,x,y,scale,palette,flip=false){
- if(data===knight&&nkArt(0,x+12,y+scale*12,scale*.9,'idle',1))return;
+ if(data===knight&&nkArt(0,x+12,y+scale*12,scale*.21,'idle',1))return;
  return nkOldSprite(data,x,y,scale,palette,flip);
 };
 
