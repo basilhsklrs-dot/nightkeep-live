@@ -447,54 +447,32 @@ function update(dt){
   game.militia.push({x:151,y:360+Math.random()*18,hp:ranged?34:55,maxHp:ranged?34:55,ranged,cooldown:Math.random(),phase:Math.random()*6,hitAt:-100,combatState:'advance',facing:1,attackWindup:0,staggerUntil:0});
   game.militiaSpawn=1.45;
  }
- for(let j=0;j<game.militia.length;j++){
-  const m=game.militia[j];m.cooldown-=dt*speed;m.phase+=dt*6;m.fatigue=Math.max(0,(m.fatigue||0)-dt*.1);
-  const alive=game.enemies.filter(e=>e.hp>0&&!e.worldBoss);
-  // Keep a target until it dies: no every-frame random target switches.
-  if(!m.target||m.target.hp<=0||!game.enemies.includes(m.target)){
-   m.target=(globalThis.NKCombat2?.nearestTarget(m,alive.filter(e=>!e.ranged))||globalThis.NKCombat2?.nearestTarget(m,alive)||alive.filter(e=>!e.ranged).sort((a,b)=>Math.hypot(a.x-m.x,(a.y-m.y)*2)-Math.hypot(b.x-m.x,(b.y-m.y)*2))[0]||alive[0]||null);
-  }
-  const foe=m.target;
-  const lane=Math.max(359,Math.min(384,m.homeLane||(m.homeLane=360+(j%5)*5)));
-  if(!foe){
-   m.combatState='guard';
-   const mx=m.ranged?166:237,my=lane;
-   m.x+=Math.max(-30*dt,Math.min(30*dt,mx-m.x));m.y+=Math.max(-16*dt,Math.min(16*dt,my-m.y));
-   continue;
-  }
-  const underPressure=m.ranged&&game.enemies.some(e=>e.hp>0&&!e.ranged&&e.x-m.x<67&&Math.abs(e.y-m.y)<30);
-  const desiredX=m.ranged?(underPressure||m.retreatUntil>game.time?145:166):Math.max(196,Math.min(280,foe.x-25)),desiredY=m.ranged?lane:Math.max(339,Math.min(387,foe.y));
-  const walk=(dest,cur,max)=>cur+Math.max(-max,Math.min(max,dest-cur));
-  const prevX=m.x;
-  m.x=walk(desiredX,m.x,(m.ranged?18:32)*dt);
-  m.y=walk(desiredY,m.y,16*dt)+battleSeparation(m,game.militia,dt);m.y=Math.max(337,Math.min(389,m.y));
-  m.facing=foe.x>=m.x?1:-1;
-  const range=Math.hypot(foe.x-m.x,(foe.y-m.y)*1.65);
-  const canStrike=range<=(m.ranged?210:34);
-  m.combatState=!canStrike?'advance':m.cooldown>0?'guard':'windup';
-  if(!canStrike||m.cooldown>0)continue;
-  // Defensive block opportunity reduces but does not negate incoming close combat.
-  m.blockUntil=game.time+.28;
-  // Attack animation begins before the impact, then resolves in a later tick.
-  if(!m.attackWindup){
-   m.attackWindup=m.ranged?.30:.20;m.pendingTarget=foe;m.cooldown=m.ranged?2.7:1.55+(m.fatigue||0)*.04;m.fatigue=Math.min(5,(m.fatigue||0)+.22);
-   m.combatState='attack';m.lastAttackAt=game.time;
-  }
+
+ // NIGHTKEEP 2.0 owns all militia targeting, movement, windup, impact and damage.
+ // Hostile actors remain legacy-controlled until the full TikTok combat migration.
+ game.nkCombatState ||= {time:0,units:[],projectiles:[]};
+ const nkState=game.nkCombatState;
+ const nkMilitia=game.militia.filter(m=>m.hp>0);
+ const nkHostiles=game.enemies.filter(e=>e.hp>0&&!e.worldBoss);
+ for(const [i,m] of nkMilitia.entries()){
+  m.nkId ||= 'guard-'+(game.nkUnitSeq=(game.nkUnitSeq||0)+1);
+  m.nkCooldown ??= m.cooldown||0;
  }
- for(const m of game.militia){
-  if(m.attackWindup>0){
-   m.attackWindup-=dt;
-   if(m.attackWindup<=0){
-    const e=m.pendingTarget;m.pendingTarget=null;m.attackWindup=0;
-    if(!e||e.hp<=0||!game.enemies.includes(e))continue;
-    if(m.ranged){
-     if(game.shots.length<MAX_PROJECTILES)game.shots.push({x:m.x,y:m.y-9,originX:m.x,originY:m.y-9,target:e,damage:6,owner:'Φρουρά',color:'#a8eafb',life:2,arrow:true,launchAt:game.time});
-    }else if(Math.hypot(e.x-m.x,(e.y-m.y)*1.65)<40){
-     if(Math.random()<.07){e.staggerUntil=game.time+.12;continue;}const critical=Math.random()<.09;e.hp-=critical?15:9;e.lastHitOwner='Φρουρά';e.lastHitAt=game.time;e.lastHitDamage=critical?15:9;e.criticalHit=critical;e.attackPulse=game.time;e.staggerUntil=game.time+.22;pop(e.x,e.y-10,'#cfe7f8',4);
-    }
-    m.hitAt=game.time;m.combatState='recover';
-   }
-  }
+ for(const [i,e] of nkHostiles.entries())e.nkId ||= 'hostile-'+(game.nkUnitSeq=(game.nkUnitSeq||0)+1);
+ const units=[
+  ...nkMilitia.map(m=>({id:m.nkId,team:'defender',x:m.x,y:m.y,hp:m.hp,range:m.ranged?185:32,aggroRange:380,ranged:!!m.ranged,damage:m.ranged?6:9,speed:m.ranged?18:32,cooldown:m.nkCooldown||0,windup:m.nkWindup||0,targetId:m.nkTarget||null,animation:m.combatState||'idle',critChance:.09,projectileSpeed:310,source:m})),
+  ...nkHostiles.map(e=>({id:e.nkId,team:'sieger',x:e.x,y:e.y,hp:e.hp,range:0,aggroRange:0,damage:0,speed:0,cooldown:999999,windup:0,source:e,passive:true}))
+ ];
+ nkState.units=units;
+ const events=globalThis.NKCombat2?.stepCombat(nkState,dt,{rng:Math.random})||[];
+ for(const u of units){
+  if(u.team==='defender'){
+   const m=u.source;m.x=Math.max(130,Math.min(325,u.x));m.y=Math.max(337,Math.min(389,u.y));m.nkCooldown=u.cooldown;m.nkWindup=u.windup;m.nkTarget=u.targetId;m.combatState=u.animation;m.lastAttackAt=events.some(ev=>ev.source===u.id&&ev.type==='windup')?game.time:m.lastAttackAt;
+  }else if(u.hp<u.source.hp){const e=u.source;e.hp=Math.max(0,u.hp);e.lastHitOwner='Φρουρά';e.lastHitAt=game.time;e.lastHitDamage=9;e.attackPulse=game.time;e.staggerUntil=game.time+.15;}
+ }
+ for(const ev of events){
+  if(ev.type==='impact'){const e=nkHostiles.find(v=>v.nkId===ev.target);if(e){e.lastHitDamage=ev.damage;pop(e.x,e.y-10,ev.critical?'#f9d77b':'#cfe7f8',ev.critical?7:4);}}
+  if(ev.type==='projectile')beep('shoot');
  }
  game.fallenUnits||=[];
  for(const m of game.militia)if(m.hp<=0&&!m.deathRecorded){m.deathRecorded=true;game.fallenUnits.push({x:m.x,y:m.y,side:'defender',at:game.time});}
