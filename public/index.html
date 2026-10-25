@@ -927,65 +927,55 @@ function drawPortrait(){
   const p=particle.x<160?{x:particle.x+150,y:particle.y+385}:portraitEnemy({x:particle.x,y:particle.y,kind:'normal'});
   ctx.globalAlpha=Math.min(1,particle.life*2);rect(clamp(p.x,0,478),p.y,3,3,particle.color);
  }ctx.globalAlpha=1;
- // Readable information stays away from TikTok's right-side buttons and lower chat.
- rect(0,0,480,58,'#111728ee');text('NIGHTKEEP',240,37,'#f3d69a',29,'center');
- // Stage and wave details are announced on transition, not permanently displayed.
- // Strong, permanent, unobstructed call to action for free engagement.
- rect(70,81,340,53,'#202033dc');rect(70,81,340,2,'#ffd872');
- text('❤️ TAP POWER  ×'+(1+game.boost/100).toFixed(2),240,105,'#ffdf7d',22,'center');
- text('TAP ❤️ FREE → BOOST YOUR TEAM!',240,123,'#e8f5ec',12,'center');
- rect(55,65,370,9,'#101725');rect(57,67,366*Math.max(0,game.hp)/1000,5,game.hp<260?'#df8f9f':'#8fe2ad');
- // Gift legend removed from on-air stage to return space to the battle.
- // TikTok-safe high-contrast call to action, shown above the action area.
- rect(14,153,452,46,'#12172dcc');rect(14,153,452,3,'#f5cc73');
- text('TYPE 1 = DEFENDER 🛡  ·  TYPE 2 = SIEGER ⚔',240,170,'#fff1bd',13,'center');
- text('❤️ TAP FREE · 🛡 ×'+(1+game.boost/100).toFixed(2)+'  ⚔ ×'+(1+(game.siegeBoost||0)/100).toFixed(2),240,189,'#ffcf78',15,'center');
- drawLiveLeaderboards();drawEngagementHud();
- const onlineNow=Date.now(),activeD=(game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>onlineNow).length,activeS=(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>onlineNow).length;
- text('🛡 ACTIVE '+activeD+'       ⚔ ACTIVE '+activeS,240,306,'#e6efc9',13,'center');
- // Keep the audience informed when the TikTok event connection (not their livestream) drops.
- if(!demo&&backendState!=='live'){
-  rect(22,321,436,46,'#3a1322f2');rect(22,321,436,3,'#ff7c83');
-  text('⚠ TIKTOK EVENTS: '+(backendState==='connecting'?'RECONNECTING':'DISCONNECTED'),240,341,'#fff0e8',16,'center');
-  text('NEW VIEWERS / LIKES NOT REACHING THE GAME',240,356,'#ffd4bb',10,'center');
- }
- if((game.barrier||0)>0)text(`BARRIER ${Math.ceil(game.barrier)} HP · ${Math.ceil(game.barrierTime)}s`,240,725,'#a5e8b4',11,'center');
- if(game.shield>0)text(`SHIELD ${Math.ceil(game.shield)}s`,240,553,'#a7e3eb',15,'center');
- if((game.healGlow||0)>0){ctx.strokeStyle='#a5e8b4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(240,663,80,52,0,0,Math.PI*2);ctx.stroke();for(let i=0;i<9;i++){const angle=i*.7+t*2;drawGiftIcon('rose',235+Math.sin(angle)*83,652+Math.cos(angle)*45,.55)}}
- rect(0,737,480,117,'#111728');
- // Keep gifts/teams in a tiny transparent activity log, never in a large center overlay.
- if(eventBanner?.until>Date.now()&&eventBanner.title&&eventBanner.title!==game.lastActivityTitle){
-  game.lastActivityTitle=eventBanner.title;
-  game.activity||=[];
-  game.activity.unshift({message:(String(eventBanner.user||'').slice(0,12)+' · '+String(eventBanner.title).slice(0,32)),color:eventBanner.color||'#e6f4ed',until:Date.now()+2300});
-  game.activity=game.activity.slice(0,4);
- }
- game.activity=(game.activity||[]).filter(x=>x.until>Date.now());
- for(let j=0;j<game.activity.length;j++){
-  const x=game.activity[j],alpha=Math.min(1,(x.until-Date.now())/500);
-  ctx.save();ctx.globalAlpha=alpha;ctx.shadowColor='#000';ctx.shadowBlur=3;
-  text(x.message.slice(0,43),13,442+j*17,x.color,10,'left');ctx.restore();
- }
- // Persistent and readable gift hints in the upper safe area, not behind TikTok chat.
- const giftTips=[
-  '🌹 ROSE 1 COIN → HERO XP + POWER',
-  '🎁 FINGER HEART → MORE HERO POWER',
-  '🕶 SUNGLASSES → STRONG HERO BUFF',
-  '🦁 LION / UNIVERSE → EPIC ATTACK',
-  '🛡 DEFENDER GIFTS → HP + DAMAGE',
-  '⚔ SIEGER GIFTS → ATTACK + HP',
-  '❤️ TAP FREE → XP + HEAL + REVIVE'
- ];
- // Keep one short hint; the second line was competing with live warnings and gameplay.
- if(demo||backendState==='live')text(giftTips[Math.floor(t/7)%giftTips.length],240,378,'#e8f4e9',11,'center');
 
- // Avoid any text in the bottom TikTok chat/input occlusion zone.
- 
- // TikTok-safe battle stats: high enough to remain visible above the chat and gifts bar.
- rect(14,641,452,66,'#0c1724e8');rect(14,641,452,2,'#8fe2ad');
- text('❤️ LIKES '+(game.players||[]).reduce((n,p)=>n+(p.likes||0),0)+'   ⚔ KILLS '+game.kills+'   👥 HEROES '+((game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>Date.now()).length+(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>Date.now()).length),240,665,'#e7f3e8',17,'center');
- text('LIVE BATTLE · TAP ❤️ TO LEVEL UP',240,692,'#f5d49a',13,'center');
- if(game.hp<=0||game.deadUntil){ctx.globalAlpha=.85;rect(28,310,402,175,'#121725');ctx.globalAlpha=1;text('THE CASTLE HAS FALLEN',228,355,'#edb9c6',22,'center');text(`NEW BATTLE IN ${Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))}″`,228,401,'#f5d49a',25,'center');text('Defenders will return.',228,444,'#bcc8cd',14,'center');}
+ // PORTRAIT BROADCAST HUD V3: one readable hierarchy, zero essential UI below y=610.
+ // Battle plays from y=195 to 620. TikTok overlays usually cover the lower third.
+ ctx.save();
+ const z=game.engagement||{},aliveD=(game.defenders||[]).filter(d=>d.hp>0&&d.activeUntil>Date.now()).length;
+ const aliveS=(game.enemies||[]).filter(e=>e.siegerHero&&e.hp>0&&e.activeUntil>Date.now()).length;
+ const remaining=Math.max(0,Math.ceil((z.bossAt||game.time+300)-game.time));
+ const health=Math.max(0,Math.min(1,game.hp/1000));
+ // Thin integrated cinematic header instead of several stacked rectangles.
+ const bar=ctx.createLinearGradient(0,0,0,108);
+ bar.addColorStop(0,'#0a1126f9');bar.addColorStop(1,'#0a1126bc');
+ rect(0,0,480,110,bar);
+ text('NIGHTKEEP',240,35,'#f5d597',27,'center');
+ text('🛡 '+aliveD+'  DEFENDERS',20,63,'#9ae8ee',12);
+ text('SIEGERS  '+aliveS+' ⚔',460,63,'#ffb8c5',12,'right');
+ rect(18,80,444,9,'#283247');rect(19,81,442*health,7,health<.27?'#ff6982':'#8ce1b4');
+ text('CASTLE '+Math.ceil(game.hp)+' HP',21,104,'#f0e5d7',10);
+ text('☠ BOSS '+Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'),458,104,'#f2b7a1',10,'right');
+ // Extremely compact scoreboard, with no huge persistent black leaderboard cards.
+ const left=topHeroIds('defense')[0],right=topHeroIds('siege')[0];
+ rect(8,116,226,39,'#0b1b2acb');rect(246,116,226,39,'#271325cb');
+ text('♛ '+(left?displayHeroName(left).slice(0,15):'TOP DEFENDER'),18,134,'#a9edf5',12);
+ text('♛ '+(right?displayHeroName(right).slice(0,15):'TOP SIEGER'),460,134,'#ffc3cd',12,'right');
+ text('🛡 HOLD THE CASTLE',18,150,'#7cbac4',9);
+ text('⚔ BREAK THE WALL',460,150,'#d18eab',9,'right');
+ // Fixed interaction hook above combat, not at the bottom below TikTok's chat.
+ const prompts=['❤️ TAP = POWER + XP','FOLLOW = STRONGER HERO','GIFTS = BATTLE POWERS','TYPE 1 / 2 = SWITCH TEAM'];
+ const prompt=prompts[Math.floor(Date.now()/10000)%prompts.length];
+ rect(91,161,298,28,'#222439d0');rect(91,161,298,2,'#f4ce7b');
+ text(prompt,240,181,'#fff0bb',13,'center');
+ // Activity: show only ONE fleeting moment rather than an ever-growing stacked feed.
+ if(eventBanner?.until>Date.now()&&Date.now()>=stageBanner.until&&!game.enemies.some(e=>e.worldBoss&&e.hp>0)){
+  ctx.save();ctx.globalAlpha=Math.min(.93,(eventBanner.until-Date.now())/500);
+  const name=String(eventBanner.user||'').slice(0,18),title=String(eventBanner.title||'').slice(0,30);
+  rect(75,232,330,42,'#172034dd');text(name,240,248,eventBanner.color||'#ecdea9',11,'center');
+  text(title,240,266,'#f8eee5',12,'center');ctx.restore();
+ }
+ if(!demo&&backendState!=='live'){
+  rect(64,281,352,32,'#4e1c31e9');
+  text('⚠ WAITING FOR TIKTOK EVENTS',240,302,'#ffd5ce',13,'center');
+ }
+ if(game.hp<=0||game.deadUntil){
+  ctx.save();rect(27,315,426,155,'#110f21f2');rect(27,315,426,4,'#ff798e');
+  text('THE KEEP HAS FALLEN',240,361,'#ffd1d9',24,'center');
+  text('NEW BATTLE IN '+Math.max(1,Math.ceil((game.deadUntil-Date.now())/1000))+'s',240,410,'#ffe09c',20,'center');
+  ctx.restore();
+ }
+ ctx.restore();
+
  ctx.restore();
 }
 
@@ -1032,7 +1022,20 @@ function visualUi(){
  ctx.restore();
 }
 
-function draw(){if(portrait){drawPortrait();drawRetentionHud();}else drawLandscape();visualAtmosphere();visualUi();if(portrait&&game.engagement?.lastStandActive){const seconds=Math.max(0,Math.ceil(game.engagement.lastStandEnds-game.time));text('⚠ LAST STAND '+seconds+'s · ❤️ TAPS COUNT!',240,326,'#ffb0a8',16,'center');}if(game.featureAnnouncement&&Date.now()<game.featureAnnouncement.until){ctx.save();ctx.globalAlpha=Math.min(.95,(game.featureAnnouncement.until-Date.now())/450);text(game.featureAnnouncement.title,240,portrait?334:120,'#ffda8f',18,'center');text(game.featureAnnouncement.detail,240,portrait?350:141,'#fcf1de',11,'center');ctx.restore();}if(portrait&&Date.now()<waveBanner.until&&Date.now()>=stageBanner.until){const st=stageState();rect(104,110,272,43,'#151d30e8');text('⚔ WAVE '+st.wave+'/3 · '+st.theme.name,240,138,st.theme.accent,17,'center');}if(Date.now()<stageBanner.until&&game.hp>0){const stage=STAGES[stageBanner.index],y=portrait?390:125;rect(42,y-35,396,111,'#151d30ee');text(`NEW STAGE ${stageBanner.index+1}/4`,240,y-6,stage.accent,18,'center');text(stage.name,240,y+24,'#eee7de',17,'center');text(`CYCLE ${stageBanner.cycle} · THE BATTLE CONTINUES`,240,y+53,'#aab8c8',10,'center');}if(!portrait&&Date.now()<comboBurst.until){const y=128;text(`COMBO ×${comboBurst.total} BONUS +${comboBurst.bonus}%`,240,y,'#f5d49a',18,'center');}}
+function draw(){
+ if(portrait){
+  drawPortrait();
+  visualAtmosphere();
+  // High priority stage introduction is the only interruption to battle.
+  if(Date.now()<stageBanner.until&&game.hp>0){
+   const st=STAGES[stageBanner.index];
+   ctx.save();rect(53,360,374,100,'#12162ce8');rect(53,360,374,4,st.accent);
+   text('NEW STAGE '+(stageBanner.index+1),240,394,st.accent,22,'center');
+   text(st.name,240,429,'#f5eee7',16,'center');ctx.restore();
+  }
+ }else{drawLandscape();visualAtmosphere();visualUi();}
+}
+
 let uiTimer=0;
 function hud(dt){uiTimer-=dt;if(uiTimer>0)return;uiTimer=.2;diagnostics();const hp=Math.max(0,Math.ceil(game.hp));$('hp').textContent=`${hp} / 1000`;$('hpfill').style.width=hp/10+'%';$('hpfill').style.background=hp<260?'#d18493':'';$('hpbar').setAttribute('aria-valuenow',hp);$('boostfill').style.width=game.boost/4+'%';$('boost').textContent='×'+(1+game.boost/100).toFixed(2);$('defenders').textContent=String(game.defenders.length+3).padStart(2,'0');$('kills').textContent=game.kills.toLocaleString();$('round').textContent=String(game.round).padStart(2,'0')+' / '+String(game.best).padStart(2,'0');$('wave').textContent=`STAGE ${stageState().index+1}/4 · WAVE ${stageState().wave}/3`;$('streamState').textContent=backendState==='live'?'TikTok events → battlefield':backendState==='demo'?'DEMO · simulated audience':socketState==='open'?'Streamer offline · waiting for LIVE':'Offline · auto-reconnect';$('clock').textContent=new Date(Date.now()-bootTime).toISOString().slice(11,19);}
 let last=performance.now(),accumulator=0;
