@@ -226,6 +226,13 @@ function empowerBosses(id,bonus){
 function applyEvent(e){
  if(e.user&&e.displayName){const id=String(e.user).slice(0,64),nick=String(e.displayName).slice(0,64);game.displayNames ||= {};game.displayNames[id]=nick;const p=(game.players||[]).find(v=>v.user===id);if(p)p.displayName=nick;const h=game.heroes?.[id];if(h)h.displayName=nick;const d=(game.defenders||[]).find(v=>v.name===id);if(d)d.displayName=nick;}
  const count=clamp(Number(e.count)||1,1,100000);
+ // Likes, follows and gifts are reliable proof of presence even if TikTok skips ROOM_USER.
+ // Auto-enlist before applying bonuses; do not force a team switch for existing heroes.
+ if(['like','follow','gift','member'].includes(e.type)&&e.user&&e.user!=='viewer'){
+  const id=String(e.user).slice(0,64),now=Date.now();
+  const active=(game.defenders||[]).some(d=>d.name===id&&d.hp>0&&d.activeUntil>now)||(game.enemies||[]).some(v=>v.siegerHero&&v.user===id&&v.hp>0&&v.activeUntil>now);
+  if(!active)applyEvent({type:'join',user:id,displayName:e.displayName});
+ }
  if(e.type==='team'){const h=heroRecord(e.user);h.team=e.team;game.teams||={};game.teams[e.user]=e.team;if(e.team==='sieger'){game.defenders=game.defenders.filter(d=>d.name!==e.user);summonSieger(e.user);}else{game.enemies=game.enemies.filter(v=>!(v.siegerHero&&v.user===e.user));addDefender(e.user);}eventBanner={user:displayHeroName(e.user),title:e.team==='sieger'?'⚔ JOINED SIEGERS':'🛡 JOINED DEFENDERS',until:Date.now()+5000,color:e.team==='sieger'?'#ff969e':'#8fe2ad'};feed(displayHeroName(e.user),'joined '+e.team.toUpperCase(),'#f5cc73');save();return;}
  if(e.type==='join'){
  const id=String(e.user||'').slice(0,64);if(!id||id==='viewer')return;
