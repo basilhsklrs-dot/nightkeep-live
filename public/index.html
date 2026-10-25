@@ -1492,6 +1492,12 @@ nkAtlas.onload=()=>{nkAtlasReady=true;};
 nkAtlas.onerror=()=>{nkAtlasReady=false;};
 nkAtlas.decoding='async';
 nkAtlas.src='/assets/nightkeep-characters.svg?v=1';
+const nkActionAtlas=new Image();
+let nkActionReady=false;
+nkActionAtlas.onload=()=>{nkActionReady=true;};
+nkActionAtlas.onerror=()=>{nkActionReady=false;};
+nkActionAtlas.decoding='async';
+nkActionAtlas.src='/assets/nightkeep-action-frames.svg?v=2';
 function nkArt(index,x,y,size=1,mode='idle',facing=1){
  if(!nkAtlasReady)return false;
  const t=game.time||0;
@@ -1508,7 +1514,9 @@ function nkArt(index,x,y,size=1,mode='idle',facing=1){
  ctx.rotate(lean);
  if(mode==='death')ctx.rotate(Math.PI/2);
  // Sprite frame: a complete independently illustrated character, with pose transforms.
- ctx.drawImage(nkAtlas,index*128,0,128,160,-48,-112,96,120);
+ const actionFrame=mode==='hit'||mode==='death'?3:mode==='attack'||mode==='critical'||mode==='special'?2:mode==='walk'||mode==='run'||mode==='retreat'?1:0;
+ if(nkActionReady)ctx.drawImage(nkActionAtlas,index*128,actionFrame*160,128,160,-48,-112,96,120);
+ else ctx.drawImage(nkAtlas,index*128,0,128,160,-48,-112,96,120);
  // Layered combat accents synchronized to attack/hit states; original sprite retains identity.
  if(striking&&index!==6&&index!==7){ctx.save();ctx.globalAlpha=.35+.5*attackPhase;ctx.strokeStyle=index===2||index===3||index===5?'#ffb1b8':'#a9efff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(facing>0?20:-20,-54,23,-1.2,1.05);ctx.stroke();ctx.restore();}
  if(mode==='block'){ctx.save();ctx.globalAlpha=.55;ctx.strokeStyle='#e8dfc4';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(-20,-45,17,24,0,0,Math.PI*2);ctx.stroke();ctx.restore();}
