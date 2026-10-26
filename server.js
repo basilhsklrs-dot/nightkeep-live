@@ -1,5 +1,6 @@
 /** Castle LIVE — Node 22+, ESM. No chat listeners and no client game commands. */
 import http from 'node:http';
+import { normalizePK } from './pk-telemetry.js';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
@@ -102,7 +103,7 @@ export async function startServer(env = process.env) {
   const origins = (env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
   const instance = randomUUID();
   let seq = 0, stopping = false, connection, reconnectTimer, failures = 0, connecting = false;
-  let generation = 0, room = '', lastEventAt = null;
+  let generation = 0, room = '', lastEventAt = null, hostId = '', pkSnapshot = null;
   const history = [], normalizer = new Normalizer(overrides);
   let status = { state: demo ? 'demo' : 'connecting', streamer, demo, nextRetryAt: null };
   const maxClients = Math.max(1, Number(env.MAX_CLIENTS) || 20);
@@ -120,6 +121,7 @@ export async function startServer(env = process.env) {
   const emit = event => {
     if (!event) return;
     const packet = { ...event, instance, seq: ++seq, at: Date.now() };
+    if(packet.type==='pk') pkSnapshot=packet.phase==='end'?null:packet;
     lastEventAt = packet.at;
     if(packet.type==='gift') console.info(JSON.stringify({event:'gift_received',user:packet.user,displayName:packet.displayName,giftId:packet.giftId,giftName:packet.giftName,count:packet.count,coinsPerGift:packet.coins,totalCoins:(packet.coins||0)*(packet.count||1),action:packet.action,seq:packet.seq}));
     history.push(packet);
@@ -133,12 +135,15 @@ export async function startServer(env = process.env) {
     res.setHeader('Cache-Control', 'no-store');
     if (path === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
+      res.end(JSON.stringify({ ok: true, version:'fighter-1.0', pkScoresVerified:Boolean(pkSnapshot?.scoresVerified), ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
     }
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       try { const html = await readFile(htmlPath); res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); res.end(html); }
       catch { res.writeHead(500); res.end('Frontend missing'); }
       return;
+    }
+    if(req.method==='GET'&&['/fighter.js','/fighter-engine.js'].includes(path)){
+      try{const data=await readFile(new URL('./public/'+path.slice(1),import.meta.url));res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data);}catch{res.writeHead(404);res.end('Not found');}return;
     }
     if (req.method === 'GET' && (path === '/three.module.js' || path === '/three.core.js')) {try {const data=await readFile(new URL('./node_modules/three/build/'+path.slice(1),import.meta.url));res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data);}catch{res.writeHead(503);res.end('3D engine unavailable');}return;}
     if (req.method === 'GET' && path === '/bumper.js') { try { const data=await readFile(new URL('./public/bumper.js',import.meta.url)); res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(data); } catch {res.writeHead(404);res.end('Not found');}return; }
@@ -195,6 +200,7 @@ export async function startServer(env = process.env) {
     send(ws, { type: 'hello', instance, seq, replayable, gap: Boolean(oldInstance && !replayable), ...status });
     // First visit starts now; a matching saved checkpoint resumes within the replay window.
     if (replayable) for (const packet of history) if (packet.seq > after) send(ws, packet);
+    if(pkSnapshot && Date.now()-pkSnapshot.at<60000) send(ws,{...pkSnapshot,snapshot:true});
     let lastPing = 0, messages = 0;
     ws.on('message', bytes => {
       // Receive only liveness messages. Clients cannot mint likes, gifts or follows.
@@ -214,7 +220,7 @@ export async function startServer(env = process.env) {
     }
   }, 30000);
   async function dispose() {
-    generation++;
+    generation++; pkSnapshot=null;
     const old = connection; connection = undefined;
     if (old) { old.removeAllListeners(); old.on('error', () => {}); try { await old.disconnect(); } catch {} }
   }
@@ -250,14 +256,9 @@ export async function startServer(env = process.env) {
         if(!WebcastEvent[key])continue;
         current.on(WebcastEvent[key], d=>{
           if(!valid())return;
-          const data=d?.data||d;
-          const rawStatus=String(data?.battleStatus??data?.status??data?.battle_status??'').toLowerCase();
-          const rawTime=Number(data?.duration??data?.battleDuration??0);
-          const finished=key==='LINK_MIC_BATTLE_PUNISH_FINISH'||['end','ended','finish','finished','3','4'].includes(rawStatus);
-          const started=key==='LINK_MIC_BATTLE'&&!finished;
-          // Do not synthesize official PK scores from gifts or unknown payload fields.
-          emit({type:'pk',phase:finished?'end':started?'start':'update',duration:Number.isFinite(rawTime)&&rawTime>0&&rawTime<3600?rawTime:null,source:key});
-          console.info(JSON.stringify({event:'pk_signal',source:key,phase:finished?'end':started?'start':'update'}));
+          const packet=normalizePK(key,d,hostId);
+          emit(packet);
+          if(packet)console.info(JSON.stringify({event:'pk_signal',source:key,phase:packet.phase,scoresVerified:packet.scoresVerified,battleId:packet.battleId}));
         });
       }
       let deadline;
@@ -269,7 +270,10 @@ export async function startServer(env = process.env) {
         state = await Promise.race([pending,new Promise((_,reject)=>{deadline=setTimeout(()=>reject(new Error('Connect deadline exceeded')),60000);})]);
       } finally { clearTimeout(deadline); }
       if (!valid()) { try { await current.disconnect(); } catch {} return; }
-      room = String(state.roomId || ''); failures = 0;
+      room = String(state.roomId || '');
+      const owner=current.roomInfo?.data?.owner||current.roomInfo?.owner;
+      hostId=String(env.TIKTOK_HOST_ID||owner?.id_str||owner?.id||'');
+      pkSnapshot=null; failures = 0;
       clearTimeout(reconnectTimer); reconnectTimer = undefined;
       updateStatus('live');
       // Give the connection loop time to settle before the first authorized chat instruction.
@@ -322,7 +326,7 @@ export async function startServer(env = process.env) {
   console.info(`Castle LIVE listening on port ${server.address().port}; ${demo ? 'DEMO' : '@' + streamer}`);
   async function close() {
     if (stopping) return; stopping = true;
-    clearTimeout(reconnectTimer); clearInterval(demoTimer); clearInterval(heartbeat); clearInterval(watchdog);
+    clearTimeout(reconnectTimer); clearInterval(demoTimer); clearInterval(heartbeat); clearInterval(watchdog); clearInterval(chatGuidanceTimer);
     for (const ws of wss.clients) ws.terminate();
     wss.close(); await dispose();
     await new Promise(resolve => server.close(resolve));
