@@ -32,29 +32,34 @@ class PkAutoAcceptService : AccessibilityService() {
 
     private lateinit var prefs: Prefs
     private val main = Handler(Looper.getMainLooper())
-    private var lastActionAt = 0L
-    private var lastSignature = ""
+    private var gate = AcceptGate()
+    private var testGate = AcceptGate()
+    private var testEpoch = -1
+    private fun testing() = prefs.testUntil > System.currentTimeMillis()
+    private fun currentMode() = if (testing()) prefs.testMode else prefs.mode
+    private fun report(kind: String, inviter: String = "", detail: String = "", dump: String? = null) { if (testing()) DiagLog.log("test", "$kind $detail") else Backend.report(prefs, kind, inviter, detail, dump) }
     private var lastSeenSignature = ""
     private var lastScanAt = 0L
-    private val acceptTimes = ArrayDeque<Long>()
     private var pendingScan = false
 
     override fun onServiceConnected() {
         prefs = Prefs(this); DiagLog.init(this)
         running = true; lastState = "connected"
         DiagLog.log("svc", "Accessibility service connected (mode=${prefs.mode})")
-        Backend.report(prefs, "service_state", detail = "connected mode=${prefs.mode}")
+        report("service_state", detail = "connected mode=${prefs.mode}")
         if (Build.VERSION.SDK_INT >= 26) getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "PK invitations", NotificationManager.IMPORTANCE_HIGH))
     }
 
     override fun onUnbind(intent: Intent?): Boolean { running = false; lastState = "disabled"; DiagLog.log("svc", "service unbound"); return super.onUnbind(intent) }
-    override fun onInterrupt() {}
+    override fun onInterrupt() { lastState = "interrupted" }
+    override fun onDestroy() { running = false;lastState = "destroyed";main.removeCallbacksAndMessages(null);super.onDestroy() }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (!::prefs.isInitialized) return
         val pkg = event?.packageName?.toString() ?: return
-        if (pkg !in TIKTOK) return
-        if (prefs.mode == AcceptMode.OFF && !prefs.captureNext) return
+        if (if (testing()) pkg != packageName else pkg !in TIKTOK) return
+        if (currentMode() == AcceptMode.OFF && !prefs.captureNext && !testing()) return
         // Coalesce bursts of content-changed events into one scan every 250 ms.
         if (pendingScan) return
         pendingScan = true
@@ -67,7 +72,7 @@ class PkAutoAcceptService : AccessibilityService() {
         val nodes = ArrayList<UiNode>(); val infos = ArrayList<AccessibilityNodeInfo>()
         val roots = runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList()).ifEmpty { listOfNotNull(rootInActiveWindow) }
         for (root in roots) {
-            if (root.packageName?.toString() !in TIKTOK) continue
+            if (if (testing()) root.packageName?.toString() != packageName else root.packageName?.toString() !in TIKTOK) continue
             fun walk(n: AccessibilityNodeInfo?, parent: Int, depth: Int) {
                 if (n == null || depth > 30 || nodes.size >= 600) return
                 val idx = nodes.size
@@ -86,8 +91,10 @@ class PkAutoAcceptService : AccessibilityService() {
             prefs.captureNext = false
             sendDump(nodes, "manual capture")
         }
-        probe(nodes)
-        if (prefs.mode == AcceptMode.OFF) return
+        if (testing() && nodes.none { it.text == "NIGHTKEEP LOCAL TEST — NOT TIKTOK" }) return
+        if (testing() && testEpoch != prefs.testEpoch) { testEpoch = prefs.testEpoch; testGate = AcceptGate(); lastSeenSignature = "" }
+        if (!testing()) probe(nodes)
+        if (currentMode() == AcceptMode.OFF) return
         val result = PkMatcher.match(nodes, prefs.matchConfig())
         val now = SystemClock.elapsedRealtime()
         when (result) {
@@ -97,7 +104,7 @@ class PkAutoAcceptService : AccessibilityService() {
                 if (key != lastSeenSignature) {
                     lastSeenSignature = key
                     DiagLog.log("pk", "Invitation-like UI NOT accepted: ${result.reason} inviter='${result.inviter}'")
-                    Backend.report(prefs, "pk_accept_skipped", result.inviter, result.reason)
+                    report("pk_accept_skipped", result.inviter, result.reason)
                 }
             }
             is MatchResult.Invitation -> handleInvite(result, infos, now)
@@ -110,7 +117,7 @@ class PkAutoAcceptService : AccessibilityService() {
     private fun sendDump(nodes: List<UiNode>, reason: String) {
         val dump = dumpOf(nodes)
         DiagLog.log("capture", "$reason (${nodes.size} nodes):\n${dump.take(3000)}")
-        Backend.report(prefs, "ui_capture", detail = "$reason; ${nodes.size} nodes", dump = dump)
+        report("ui_capture", detail = "$reason; ${nodes.size} nodes", dump = dump)
     }
 
     private val probeWords = Regex("(?U)\\b(pk|match|matches|battle|invit\\w*|accept|decline|προσκλ\\w*|αγων\\w*|μαχ\\w*|αποδοχ\\w*|αποδεχ\\w*|απορριψ\\w*)\\b")
@@ -119,7 +126,7 @@ class PkAutoAcceptService : AccessibilityService() {
 
     /** Calibration: automatically send any TikTok screen that looks like a PK/match prompt (deduplicated, max 1 per 8 s). */
     private fun probe(nodes: List<UiNode>) {
-        if (prefs.mode == AcceptMode.OFF) return
+        if (currentMode() == AcceptMode.OFF) return
         val hits = nodes.filter { it.visible }.mapNotNull { n -> probeWords.find(PkMatcher.norm(n.text + " " + n.desc))?.value }.distinct()
         if (hits.isEmpty()) return
         val key = hits.sorted().joinToString(",")
@@ -132,31 +139,33 @@ class PkAutoAcceptService : AccessibilityService() {
     private fun handleInvite(r: MatchResult.Invitation, infos: List<AccessibilityNodeInfo>, now: Long) {
         val firstSight = r.signature != lastSeenSignature
         lastSeenSignature = r.signature
-        if (firstSight) { DiagLog.log("pk", "PK invitation detected from '${r.inviter}'"); Backend.report(prefs, "pk_invitation_seen", r.inviter) }
+        if (firstSight) { DiagLog.log("pk", "PK invitation detected from '${r.inviter}'"); report("pk_invitation_seen", r.inviter) }
         lastState = "invitation"
-        if (prefs.mode == AcceptMode.ASSIST) { if (firstSight) alert(r.inviter); return }
-        // Duplicate prevention: same dialog within 60 s, global cooldown, hourly cap.
-        if (r.signature == lastSignature && now - lastActionAt < 60_000) return
-        if (now - lastActionAt < prefs.cooldownSec * 1000L) { if (firstSight) DiagLog.log("pk", "cooldown active, not clicking"); return }
-        while (acceptTimes.isNotEmpty() && now - acceptTimes.first() > 3_600_000) acceptTimes.removeFirst()
-        if (acceptTimes.size >= prefs.maxPerHour) { if (firstSight) { DiagLog.log("pk", "hourly limit reached; switching to alert"); alert(r.inviter) }; return }
+        val policy = if (testing()) testGate else gate
+        when (val decision = policy.check(r.signature, now, currentMode().name, prefs.cooldownSec, prefs.maxPerHour)) {
+            "off" -> return
+            "assist" -> { if (firstSight) { DiagLog.log("pk", "ASSIST — no click"); if (!testing()) alert(r.inviter) }; return }
+            "auto" -> Unit
+            else -> { lastState = decision; if (firstSight) DiagLog.log("pk", "Not clicking: $decision"); return }
+        }
         val target = infos.getOrNull(r.clickIndex)
         if (target == null || !target.refresh() || !target.isEnabled) { DiagLog.log("pk", "accept node vanished before click"); return }
-        lastActionAt = now; lastSignature = r.signature; acceptTimes.addLast(now)
         val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        policy.record(r.signature, now, ok)
         DiagLog.log("pk", if (ok) "ACCEPT clicked for '${r.inviter}'" else "ACCEPT click rejected by system")
-        Backend.report(prefs, if (ok) "pk_accept_clicked" else "pk_accept_failed", r.inviter, if (ok) "click dispatched" else "performAction=false")
-        if (ok) main.postDelayed({ verify(r) }, 2500)
+        report(if (ok) "pk_accept_clicked" else "pk_accept_failed", r.inviter, if (ok) "click dispatched" else "performAction=false")
+        val local = testing()
+        if (ok) main.postDelayed({ if (!local || testing()) verify(r, local) }, 2500)
     }
 
     /** After clicking, the same invitation dialog must be gone. */
-    private fun verify(r: MatchResult.Invitation) {
+    private fun verify(r: MatchResult.Invitation, local: Boolean) {
         val (nodes, _) = snapshot()
         val again = PkMatcher.match(nodes, prefs.matchConfig())
         if (again is MatchResult.Invitation && again.signature == r.signature) {
             DiagLog.log("pk", "dialog still visible 2.5 s after click — acceptance NOT confirmed")
-            Backend.report(prefs, "pk_accept_failed", r.inviter, "dialog still visible after click")
-        } else DiagLog.log("pk", "dialog closed after click (server will confirm via PK start event)")
+            report("pk_accept_failed", r.inviter, "dialog still visible after click")
+        } else DiagLog.log("pk", if (local) "LOCAL TEST: dialog closed after click" else "dialog closed after click (server will confirm via PK start event)")
     }
 
     private fun alert(inviter: String) {
@@ -171,3 +180,4 @@ class PkAutoAcceptService : AccessibilityService() {
         runCatching { vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 250, 120, 250, 120, 400), -1)) }
     }
 }
+

@@ -2,9 +2,10 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:packageNames="com.zhiliaoapp.musically,com.ss.android.ugc.trill,com.zhiliaoapp.musically.go,com.ss.android.ugc.aweme"
+    android:packageNames="live.nightkeep.pkbattle,com.zhiliaoapp.musically,com.ss.android.ugc.trill,com.zhiliaoapp.musically.go,com.ss.android.ugc.aweme"
     android:notificationTimeout="150"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="false"
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:description="@string/service_description" />
+

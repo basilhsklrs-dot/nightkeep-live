@@ -23,6 +23,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".InvitationTestActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".GameActivity" android:exported="false" android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
@@ -39,3 +40,4 @@
         </service>
     </application>
 </manifest>
+

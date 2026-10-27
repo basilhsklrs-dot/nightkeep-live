@@ -32,6 +32,9 @@ class Prefs(ctx: Context) {
     var sound: Boolean get() = p.getBoolean("sound", true); set(v) = p.edit().putBoolean("sound", v).apply()
     var captureNext: Boolean get() = p.getBoolean("capture", false); set(v) = p.edit().putBoolean("capture", v).apply()
 
+    var testUntil: Long get() = p.getLong("localTestUntil", 0); set(v) = p.edit().putLong("localTestUntil", v).apply()
+    var testEpoch: Int get() = p.getInt("localTestEpoch", 0); set(v) = p.edit().putInt("localTestEpoch", v).apply()
+    var testMode: AcceptMode get() = runCatching { AcceptMode.valueOf(p.getString("localTestMode", "OFF")!!) }.getOrDefault(AcceptMode.OFF); set(v) = p.edit().putString("localTestMode", v.name).apply()
     private fun list(s: String) = s.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }
     fun matchConfig() = MatchConfig(
         invitePhrases = MatchConfig.DEFAULT_INVITE + list(extraInvitePhrases),
@@ -106,3 +109,4 @@ object Backend {
         }
     }
 }
+

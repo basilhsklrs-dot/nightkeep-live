@@ -94,6 +94,7 @@ class MainActivity : Activity() {
         group.setOnCheckedChangeListener { _, id -> prefs.mode = AcceptMode.values()[id - 1]; DiagLog.log("ui", "Auto Accept mode → ${prefs.mode}"); Backend.report(prefs, "service_state", detail = "mode=${prefs.mode}"); refresh() }
         root.addView(group)
         button("OPEN ACCESSIBILITY SETTINGS", Color.rgb(60, 50, 120)) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        button("LOCAL INVITATION TEST — NO LIVE", Color.rgb(28, 95, 100)) { startActivity(Intent(this, InvitationTestActivity::class.java)) }
         val cooldown = field("Cooldown between accepts (seconds)", prefs.cooldownSec.toString()) { prefs.cooldownSec = it.toIntOrNull() ?: 20 }
         cooldown.inputType = InputType.TYPE_CLASS_NUMBER
         val maxHour = field("Max automatic accepts per hour", prefs.maxPerHour.toString()) { prefs.maxPerHour = it.toIntOrNull() ?: 8 }
@@ -135,7 +136,7 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val acc = accessibilityEnabled()
-        val head = "Auto Accept: ${prefs.mode}   Service: ${if (acc) "ENABLED" else "DISABLED"} (${PkAutoAcceptService.lastState})"
+        val head = "Auto Accept: ${prefs.mode}   Service: ${if (acc) "ENABLED" else "DISABLED"} (${if (PkAutoAcceptService.running) PkAutoAcceptService.lastState else "NOT CONNECTED — toggle Accessibility off/on"})"
         if (prefs.serverUrl.isEmpty()) { status.text = "$head\nServer: not configured"; return }
         Backend.status(prefs) { j, err ->
             if (j == null) { status.text = "$head\nServer: OFFLINE ($err)"; return@status }
@@ -156,3 +157,4 @@ class MainActivity : Activity() {
     override fun onResume() { super.onResume(); DiagLog.listeners.add(logListener); logListener(); ui.post(poll) }
     override fun onPause() { saveAll(); DiagLog.listeners.remove(logListener); ui.removeCallbacks(poll); super.onPause() }
 }
+
