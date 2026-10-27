@@ -1,5 +1,6 @@
 /** Castle LIVE — Node 22+, ESM. No chat listeners and no client game commands. */
 import http from 'node:http';
+import { LiveChat } from './live-chat.js';
 import { normalizePK } from './pk-telemetry.js';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -84,20 +85,10 @@ export async function startServer(env = process.env) {
   const demo = env.DEMO_MODE === 'true' || process.argv.includes('--demo');
   const streamer = clean(env.TIKTOK_USERNAME || 'nightkeep.live').replace(/^@/, '');
   if (!demo && !/^[\w.]{2,64}$/.test(streamer)) throw Error('Set TIKTOK_USERNAME in .env (without @), or run npm run demo.');
-  // Outbound messages are disabled unless the creator explicitly configures an authenticated session.
-  const chatEnabled = false; // Legacy NIGHTKEEP outbound chat disabled until Bumper-specific messages are approved.
+  const chatEnabled = env.CHAT_ENABLED !== 'false';
   const chatSessionId = String(env.TIKTOK_SESSION_ID || '');
   const chatTargetIdc = String(env.TIKTOK_TARGET_IDC || '');
   const chatReady = chatEnabled && Boolean(env.EULER_API_KEY && chatSessionId && chatTargetIdc);
-  const chatMessages = [
-    '🤖 WELCOME! Your robot enters the arena automatically. Find your name!',
-    '❤️ TAP TAP to charge your robot, earn XP and unlock special attacks!',
-    '🧡 FOLLOW to give your robot an extra shield and keep fighting!',
-    '💗 MEMBER HEART: show your support and power up the LIVE battle!',
-    '🎁 SEND A GIFT to unlock shields, boosts and spectacular attacks!',
-    '🏆 Watch your robot battle! Likes and gifts help you climb the leaderboard!'
-  ];
-  let chatIndex = 0, chatSending = false, chatFailures = 0, chatPaused = false;
   const overrides = JSON.parse(env.GIFT_ID_MAP || '{}');
   for(const value of Object.values(overrides)){const action=typeof value==='string'?value:value?.action;if(!defaultSkins[action])throw Error('Invalid GIFT_ID_MAP action');if(typeof value==='object'&&value.skin&&skinActions[value.skin]!==action)throw Error('Gift skin does not match action');}
   const origins = (env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -106,6 +97,12 @@ export async function startServer(env = process.env) {
   let generation = 0, room = '', lastEventAt = null, hostId = '', pkSnapshot = null;
   const history = [], normalizer = new Normalizer(overrides);
   let status = { state: demo ? 'demo' : 'connecting', streamer, demo, nextRetryAt: null };
+  const liveChat = new LiveChat({
+    enabled:chatEnabled,
+    ready:()=>Boolean(chatReady&&!demo&&!stopping&&!connecting&&status.state==='live'&&connection?.isConnected&&room),
+    send:(text,targetRoom)=>connection.sendMessage(text,targetRoom),
+    log:event=>console.info(JSON.stringify(event))
+  });
   const maxClients = Math.max(1, Number(env.MAX_CLIENTS) || 20);
   const send = (ws, data) => {
     if (ws.readyState !== WebSocket.OPEN) return;
@@ -124,6 +121,7 @@ export async function startServer(env = process.env) {
     if(packet.type==='pk') pkSnapshot=packet.phase==='end'?null:packet;
     lastEventAt = packet.at;
     if(packet.type==='gift') console.info(JSON.stringify({event:'gift_received',user:packet.user,displayName:packet.displayName,giftId:packet.giftId,giftName:packet.giftName,count:packet.count,coinsPerGift:packet.coins,totalCoins:(packet.coins||0)*(packet.count||1),action:packet.action,seq:packet.seq}));
+    if(!demo&&packet.type==='gift')liveChat.gift(packet);
     history.push(packet);
     while (history.length > 2000 || (history[0] && Date.now() - history[0].at > 300000)) history.shift();
     broadcast(packet);
@@ -135,7 +133,7 @@ export async function startServer(env = process.env) {
     res.setHeader('Cache-Control', 'no-store');
     if (path === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, version:'fighter-2.0', pkScoresVerified:Boolean(pkSnapshot?.scoresVerified), ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
+      res.end(JSON.stringify({ ok: true, version:'fighter-2.1-chat', chat:{...liveChat.summary(),configured:chatReady}, pkScoresVerified:Boolean(pkSnapshot?.scoresVerified), ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
     }
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       try { const html = await readFile(htmlPath); res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); res.end(html); }
@@ -241,7 +239,7 @@ export async function startServer(env = process.env) {
       connection = new TikTokLiveConnection(streamer, {
         enableExtendedGiftInfo: false, processInitialData: false,
         ...(env.EULER_API_KEY ? { signApiKey: env.EULER_API_KEY } : {}),
-        ...(chatReady ? { session: {cookie:{type:'cookie',value:{sessionId:chatSessionId,ttTargetIdc:chatTargetIdc}}} } : {})
+        ...(chatReady ? { authenticateWs:true, session: {cookie:{type:'cookie',value:{sessionId:chatSessionId,ttTargetIdc:chatTargetIdc}}} } : {})
       });
       const current = connection;
       const valid = () => ticket === generation && !stopping;
@@ -271,40 +269,21 @@ export async function startServer(env = process.env) {
       } finally { clearTimeout(deadline); }
       if (!valid()) { try { await current.disconnect(); } catch {} return; }
       room = String(state.roomId || '');
+      liveChat.setRoom(room);
       const owner=current.roomInfo?.data?.owner||current.roomInfo?.owner;
       hostId=String(env.TIKTOK_HOST_ID||owner?.id_str||owner?.id||'');
       pkSnapshot=null; failures = 0;
       clearTimeout(reconnectTimer); reconnectTimer = undefined;
       updateStatus('live');
-      // Give the connection loop time to settle before the first authorized chat instruction.
-      setTimeout(() => { void sendGuidance(); }, 1000);
+      // Chat runs only on this authenticated LIVE connection; no offline backlog.
     } catch (error) {
       // Never log raw error objects: these can contain signed URLs or headers.
       console.warn(`TikTok connect failed (${clean(error?.name || 'Error')}); streamer may be offline, rate limited or blocked.`);
       if (ticket === generation && !stopping) { await dispose(); retry(); }
     } finally { connecting = false; }
   }
-  // First authenticated instruction can go out when a LIVE connection is established;
-  // subsequent instructions remain rate-limited to one every four minutes.
-  let lastChatAttemptAt = 0;
-  const sendGuidance = async () => {
-    if(!chatReady||chatPaused||chatSending||demo||stopping||connecting||status.state!=='live'||!connection?.isConnected||!room)return;
-    if(Date.now()-lastChatAttemptAt<240000)return;
-    lastChatAttemptAt=Date.now();
-    if(!chatReady||chatPaused||chatSending||demo||stopping||connecting||status.state!=='live'||!connection?.isConnected||!room)return;
-    chatSending=true;
-    try {
-      await connection.sendMessage(chatMessages[chatIndex % chatMessages.length],room);
-      chatIndex++;chatFailures=0;
-      console.info(JSON.stringify({event:'guidance_chat_sent',number:chatIndex}));
-    }catch(error){
-      chatFailures++;
-      console.warn(JSON.stringify({event:'guidance_chat_failed',reason:clean(error?.name||'Error'),count:chatFailures}));
-      if(chatFailures>=3){chatPaused=true;console.warn('Guidance chat paused after 3 failed attempts; check TikTok session and sign provider access.');}
-    }finally{chatSending=false;}
-  };
-  const chatGuidanceTimer = setInterval(() => { void sendGuidance(); }, 15000);
-  if(chatEnabled&&!chatReady)console.warn('TikTok guidance chat disabled: configure EULER_API_KEY, TIKTOK_SESSION_ID, TIKTOK_TARGET_IDC.');
+  const chatGuidanceTimer = setInterval(() => { void liveChat.tick(); }, 500);
+  if(chatEnabled&&!chatReady)console.warn('TikTok chat not configured: EULER_API_KEY, TIKTOK_SESSION_ID, TIKTOK_TARGET_IDC are required.');
   const watchdog=setInterval(()=>{
     if(!demo&&!stopping&&!connecting&&status.state==='live'&&!connection?.isConnected){
       updateStatus('offline');void dispose().then(retry);
