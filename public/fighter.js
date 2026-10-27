@@ -23,7 +23,7 @@ const ringMat=new THREE.MeshBasicMaterial({color:0x4395cb,transparent:true,opaci
 for(const r of [2.7,3.8,4.55]){const m=mesh(new THREE.TorusGeometry(r,.018,6,96),ringMat,scene,0,-.065,0);m.rotation.x=Math.PI/2;}
 const grid=new THREE.GridHelper(30,28,0x254269,0x121e36);grid.position.y=-.48;scene.add(grid);
 for(let i=0;i<12;i++){const angle=i*Math.PI/6;const p=mesh(new THREE.BoxGeometry(.24,3+i%3,.3),standard(0x151c36,.8),scene,Math.sin(angle)*7,1,Math.cos(angle)*7);mesh(new THREE.BoxGeometry(.05,2,.04),glow,p,0,.4,.17);}
-const hero=new THREE.Group();scene.add(hero);hero.rotation.y=-.22;
+const hero=new THREE.Group();scene.add(hero);hero.rotation.y=1.30; // Face the rival on the viewer's right.
 const body=new THREE.Group();hero.add(body);
 const torso=mesh(new THREE.CylinderGeometry(.56,.38,1.15,6),suit,body,0,2.45,0);torso.scale.z=.68;
 mesh(new THREE.SphereGeometry(.56,16,10),armor,body,0,2.75,0).scale.set(1,.56,.65);
@@ -54,10 +54,10 @@ function effect(kind,color,power=1,dir=1){const mat=new THREE.MeshBasicMaterial(
  if(kind==='lightning'){
  const points=[];for(let j=0;j<15;j++)points.push(new THREE.Vector3(j*.28,Math.sin(j*7)*.32*power,Math.cos(j)*.1));
  m=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color,transparent:true,opacity:1,blending:THREE.AdditiveBlending}));m.position.set(.45,2.6,.6);scene.add(m);mat.dispose();
- }else if(kind==='beam'){m=mesh(new THREE.CylinderGeometry(.2*power,.35*power,5.5,12),mat,scene,dir*2,2.6,.4);m.rotation.z=Math.PI/2;}
+ }else if(kind==='beam'){m=mesh(new THREE.CylinderGeometry(.2*power,.35*power,5.5,12),mat,scene,dir*(.9+5.5/2),2.6,.4);m.rotation.z=Math.PI/2;}
  else if(kind==='ring'||kind==='nova'){m=mesh(ringGeo,mat,scene,0,2.2,.6);m.scale.setScalar(kind==='nova'?.4:.7);}
  else{m=mesh(kind==='spark'?sparkGeo:sphereGeo,mat,scene,dir*.6,2.55,.7);m.scale.setScalar(kind==='spark'?.07:.16*power);}
- fx.push({m,kind,life:kind==='beam'?.6:kind==='nova'?1.25:.85,total:kind==='beam'?.6:kind==='nova'?1.25:.85,power,dir,vx:kind==='spark'?(Math.random()-.4)*6:dir*4,vy:kind==='spark'?(Math.random()-.5)*6:0});
+ fx.push({m,kind,life:kind==='beam'?.6:kind==='nova'?1.25:.85,total:kind==='beam'?.6:kind==='nova'?1.25:.85,power,dir,vx:kind==='spark'?(.8+Math.random()*5):dir*4,vy:kind==='spark'?(Math.random()-.5)*6:0});
  while(fx.length>80){const f=fx.shift();scene.remove(f.m);f.m.material.dispose();if(f.kind==='beam'||f.kind==='lightning')f.m.geometry.dispose();}
 }
 let audio,muted=true;function tone(tier){if(muted||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.type=tier>2?'sawtooth':'sine';o.frequency.setValueAtTime(160+tier*95,audio.currentTime);o.frequency.exponentialRampToValueAtTime(40,audio.currentTime+.22);g.gain.setValueAtTime(.12,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.25);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.26);}catch{}}
@@ -72,10 +72,10 @@ function draw(now){const dt=Math.min(.05,(now-last)/1000);last=now;const t=now/1
  if(!attack){const a=engine.next();if(a)begin(a,now);}
  const p=attack?Math.min(1,(now-attackAt)/(attack.duration*1000)):0,hit=attack?Math.sin(Math.PI*p):0;
  hero.position.y=Math.sin(t*2)*.035;hero.position.x=attack?.kind==='dash'?Math.sin(p*Math.PI)*.8:0;
- body.rotation.z=Math.sin(t*1.4)*.018;body.rotation.y=attack?-.15-hit*.35:Math.sin(t*.7)*.04;
+ body.rotation.z=Math.sin(t*1.4)*.018;body.rotation.y=attack?.08+hit*.12:Math.sin(t*.7)*.04;
  left.joint.rotation.z=.32;right.joint.rotation.z=-.32;left.joint.rotation.x=-.15;right.joint.rotation.x=-.2;left.bend.rotation.x=-.75;right.bend.rotation.x=-.9;
  if(attack){right.joint.rotation.x=-.2-hit*1.5;right.joint.rotation.z=-.32-hit*.5;right.bend.rotation.x=-.9+hit*.85;left.joint.rotation.x=-.15-hit*.8;if(attack.kind==='beam'||attack.kind==='nova'){left.joint.rotation.x=-.2-hit*1.4;left.joint.rotation.z=.3-hit*.3;}
- if(p>.36&&!attack.fired){attack.fired=true;const k=attack.kind;effect(k==='tap'?'orb':k,attack.color,attack.visual);effect('ring',attack.color,attack.visual);for(let i=0;i<Math.min(30,5+attack.tier*3+Math.floor(attack.visual*4));i++)effect('spark',attack.color,attack.visual);if(attack.combo>=3){for(let n=0;n<Math.min(5,Math.floor(Math.log2(attack.combo)));n++)effect(attack.kind==='lightning'?'lightning':'orb',attack.color,attack.visual*(.7+n*.08),n%2?-1:1);}if(attack.combo>=5){effect('orb',attack.color,attack.visual,-1);effect('nova',attack.color,attack.visual);} }
+ if(p>.36&&!attack.fired){attack.fired=true;const k=attack.kind;effect(k==='tap'?'orb':k,attack.color,attack.visual);effect('ring',attack.color,attack.visual);for(let i=0;i<Math.min(30,5+attack.tier*3+Math.floor(attack.visual*4));i++)effect('spark',attack.color,attack.visual);if(attack.combo>=3){for(let n=0;n<Math.min(5,Math.floor(Math.log2(attack.combo)));n++)effect(attack.kind==='lightning'?'lightning':'orb',attack.color,attack.visual*(.7+n*.08),1);}if(attack.combo>=5){effect('orb',attack.color,attack.visual,1);effect('nova',attack.color,attack.visual);} }
  if(p>=1){attack=null;$('#technique').classList.remove('show');$('#combo').classList.remove('show');}}
  for(let i=0;i<tails.length;i++)tails[i].rotation.x=Math.sin(t*2+i)*.12;
  const au=engine.aura();auraStrength+=(au.strength-auraStrength)*Math.min(1,dt*2.8);level=au.level;
