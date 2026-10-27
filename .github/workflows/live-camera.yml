@@ -1,0 +1,52 @@
+name: NIGHTKEEP Live Camera TEST4
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - live-camera/source.zip
+      - .github/workflows/live-camera.yml
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.4'
+      - name: Extract source
+        run: unzip -q live-camera/source.zip -d camera-build
+      - name: Frame conversion tests
+        run: |
+          mkdir -p /tmp/frame-tests
+          javac -d /tmp/frame-tests camera-build/vcam/app/src/main/java/com/yaahua/vcam/live/FrameConverter.java camera-build/vcam/tests/FrameConverterTest.java
+          java -cp /tmp/frame-tests FrameConverterTest
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nightkeep-camera-signing
+          key: nightkeep-camera-signing-v1
+      - name: SDK and signing
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          echo "sdk.dir=$ANDROID_HOME" > camera-build/vcam/local.properties
+          mkdir -p ~/.nightkeep-camera-signing
+          if [ ! -f ~/.nightkeep-camera-signing/vcam.keystore ]; then
+            keytool -genkeypair -keystore ~/.nightkeep-camera-signing/vcam.keystore -storepass vcam123456 -keypass vcam123456 -alias vcam -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=NIGHTKEEP Live Camera"
+          fi
+          cp ~/.nightkeep-camera-signing/vcam.keystore camera-build/vcam/vcam.keystore
+      - name: Build camera APK
+        working-directory: camera-build/vcam
+        run: gradle --no-daemon --console=plain :app:assembleRelease
+      - name: Name APK
+        run: cp camera-build/vcam/app/build/outputs/apk/release/app-release.apk NIGHTKEEP_Live_Camera_TEST4.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NIGHTKEEP-Live-Camera-TEST4
+          path: NIGHTKEEP_Live_Camera_TEST4.apk
+          if-no-files-found: error

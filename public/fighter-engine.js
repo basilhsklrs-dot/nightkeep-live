@@ -46,7 +46,7 @@ const rank=map=>[...map.values()].filter(p=>p.points>0).sort((a,b)=>(b.coins||0)
 export class FighterEngine{
   constructor(now=()=>Date.now()){
     this.now=now;this.queue=[];this.deferredGifts=[];this.combos=new Map();this.supporters=new Map();this.battleSupporters=new Map();this.closedBattles=new Set();
-    this.likes=0;this.gifts=0;this.energy=0;this.pk=null;this.connected=false;this.notice=null;this.tapPending=0;this.result=null;this.spotlight=null;this.activeCombo=null;
+    this.likes=0;this.gifts=0;this.energy=0;this.pk=null;this.connected=false;this.notice=null;this.tapPending=0;this.result=null;this.spotlight=null;this.activeCombo=null;this.greeting=null;
   }
   accept(e){
     const at=this.now();
@@ -91,8 +91,8 @@ export class FighterEngine{
       this.spotlight={name:p.name,gift:e.giftName||'GIFT',combo:total,technique:technique.name,color:technique.color,at};
       this.notice={title:technique.name,detail:`${p.name} · ${e.giftName||'GIFT'} ×${total}`,at};
     }else if(e.type==='follow'){
-      this.energy=Math.min(100,this.energy+10);points=100;this.notice={title:'NEW ALLY',detail:`${p.name} followed`,at};
-    }else if(e.type==='join'){this.notice={title:'WELCOME, FIGHTER',detail:p.name,at};}
+      this.greeting={name:p.name,at,kind:'follow'};this.energy=Math.min(100,this.energy+10);points=100;this.notice={title:'NEW ALLY',detail:`${p.name} followed`,at};
+    }else if(e.type==='join'){this.greeting={name:p.name,at,kind:'join'};this.notice={title:'WELCOME, FIGHTER',detail:p.name,at};}
     p.points+=points;p.coins+=coins;
     if(this.pk&&points){const b=this.battleSupporters.get(e.user)||{name:p.name,points:0,coins:0};b.name=p.name;b.points+=points;b.coins+=coins;this.battleSupporters.set(e.user,b);}
     while(this.queue.length>18){const i=this.queue.findIndex(a=>a.kind==='tap');if(i>=0)this.queue.splice(i,1);else this.deferredGifts.push(this.queue.pop());}
@@ -104,5 +104,6 @@ export class FighterEngine{
   complete(){this.activeCombo=null;}
   aura(){return this.connected&&this.pk?.scoresVerified&&this.now()-this.pk.receivedAt<60000?auraFor(this.pk.ownScore,this.pk.opponentScore):{level:0,strength:0,lead:0};}
   leaders(){return rank(this.pk?this.battleSupporters:this.supporters);}
+  waiting(){return [...this.queue,...this.deferredGifts].filter(a=>a.kind!=='tap').map(a=>{const c=a.comboId&&this.combos.get(a.comboId);return {...a,remaining:(c?.total||a.combo)-(c?.emitted||0)};}).filter(a=>a.remaining>0);}
   activeResult(){return this.result&&this.now()<this.result.expiresAt?this.result:null;}
 }
