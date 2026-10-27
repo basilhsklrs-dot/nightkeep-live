@@ -239,7 +239,7 @@ export async function startServer(env = process.env) {
       connection = new TikTokLiveConnection(streamer, {
         enableExtendedGiftInfo: false, processInitialData: false,
         ...(env.EULER_API_KEY ? { signApiKey: env.EULER_API_KEY } : {}),
-        ...(chatReady ? { authenticateWs:true, session: {cookie:{type:'cookie',value:{sessionId:chatSessionId,ttTargetIdc:chatTargetIdc}}} } : {})
+        ...(chatReady ? { session: {cookie:{type:'cookie',value:{sessionId:chatSessionId,ttTargetIdc:chatTargetIdc}}} } : {})
       });
       const current = connection;
       const valid = () => ticket === generation && !stopping;
