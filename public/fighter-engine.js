@@ -12,8 +12,30 @@ export function techniqueFor(e){
   return {...TECHNIQUES[tier],tier};
 }
 export function comboProfile(count){
-  const combo=Math.max(1,Number(count)||1),stage=combo>=20?3:combo>=10?2:combo>=5?1:0;
-  return {stage,power:Math.min(3.4,1+Math.log2(combo)*.32),shots:[1,3,4,5][stage],finisher:stage>=2,label:['SINGLE STRIKE','MULTI STRIKE','POWER FINISH','OVERDRIVE FINISH'][stage]};
+  const combo=Math.max(1,Math.min(100000,Math.floor(Number(count)||1))),stage=combo>=20?3:combo>=10?2:combo>=5?1:0;
+  return {stage,power:Math.min(3.4,1+Math.log2(combo)*.32),shots:combo,finisher:stage>=2,label:['SINGLE STRIKE','MULTI STRIKE','POWER FINISH','OVERDRIVE FINISH'][stage]};
+}
+// One scheduled strike per gift. Frame budgets defer work; they never discard strikes.
+export class AttackRun{
+  constructor(a,now){
+    this.target=a.kind==='tap'?1:comboProfile(a.combo).shots;
+    this.emitted=Math.min(this.target,a.emitted||0);this.startedAt=now;
+    this.windup=a.kind==='tap'?100:Math.min(420,a.duration*250);
+    this.nextAt=now+this.windup;this.lastShotAt=null;
+  }
+  get interval(){return 1000/Math.min(80,4+Math.sqrt(this.target)*2.5);}
+  extend(total,now){const next=comboProfile(total).shots;if(next>this.target){if(this.emitted>=this.target)this.nextAt=Math.max(now,this.nextAt);this.target=next;}}
+  due(now){
+    const shots=[];
+    while(this.emitted<this.target&&now>=this.nextAt&&shots.length<4){
+      const index=this.emitted++;this.lastShotAt=now;
+      shots.push({index,final:this.emitted===this.target&&comboProfile(this.target).finisher});
+      this.nextAt+=this.interval;
+    }
+    return shots;
+  }
+  phase(now){return this.lastShotAt===null?Math.min(.3,(now-this.startedAt)/this.windup*.3):.3+Math.min(.7,(now-this.lastShotAt)/Math.max(150,this.interval)*.7);}
+  done(now){return this.emitted>=this.target&&this.lastShotAt!==null&&now-this.lastShotAt>=450;}
 }
 export function auraFor(own,other){
   if(!Number.isFinite(own)||!Number.isFinite(other)||own<0||other<0)return {level:0,strength:0,lead:0};
@@ -23,7 +45,7 @@ export function auraFor(own,other){
 const rank=map=>[...map.values()].filter(p=>p.points>0).sort((a,b)=>(b.coins||0)-(a.coins||0)||b.points-a.points).slice(0,3).map(p=>({...p}));
 export class FighterEngine{
   constructor(now=()=>Date.now()){
-    this.now=now;this.queue=[];this.combos=new Map();this.supporters=new Map();this.battleSupporters=new Map();this.closedBattles=new Set();
+    this.now=now;this.queue=[];this.deferredGifts=[];this.combos=new Map();this.supporters=new Map();this.battleSupporters=new Map();this.closedBattles=new Set();
     this.likes=0;this.gifts=0;this.energy=0;this.pk=null;this.connected=false;this.notice=null;this.tapPending=0;this.result=null;this.spotlight=null;this.activeCombo=null;
   }
   accept(e){
@@ -40,12 +62,12 @@ export class FighterEngine{
         const valid=e.scoresVerified&&Number.isSafeInteger(e.ownScore)&&Number.isSafeInteger(e.opponentScore)&&e.ownScore>=0&&e.opponentScore>=0;
         this.result={battleId:id||this.pk?.battleId||'',at,expiresAt:at+10000,outcome:valid?(e.ownScore>e.opponentScore?'win':e.ownScore<e.opponentScore?'loss':'draw'):'unknown',ownScore:valid?e.ownScore:null,opponentScore:valid?e.opponentScore:null,leaders:rank(this.battleSupporters)};
         if(id){this.closedBattles.add(id);if(this.closedBattles.size>32)this.closedBattles.delete(this.closedBattles.values().next().value);}
-        this.pk=null;this.queue=[];this.activeCombo=null;this.notice={title:'BATTLE COMPLETE',detail:'Thank you, fighters',at};return;
+        this.pk=null;this.queue=[];this.deferredGifts=[];this.activeCombo=null;this.notice={title:'BATTLE COMPLETE',detail:'Thank you, fighters',at};return;
       }
       if(!this.pk||(id&&id!==this.pk.battleId)){
         this.battleSupporters.clear();this.result=null;
         // Do not carry prior totals into a new battle or replay old gifts in its opening.
-        this.pk={};this.queue=[];this.activeCombo=null;
+        this.pk={};this.queue=[];this.deferredGifts=[];this.activeCombo=null;
       }
       this.pk={...this.pk,...e,receivedAt:at};return;
     }
@@ -61,9 +83,9 @@ export class FighterEngine{
       const technique=techniqueFor(e),id=e.comboId||null,old=id?this.combos.get(id):null;
       const total=Math.max(count,Number(e.comboTotal)||count,old?.total||0);
       if(old&&total<=old.total)return;
-      if(id)this.combos.set(id,{total,at});
+      if(id)this.combos.set(id,{total,emitted:old?.emitted||0,at});
       this.gifts+=count;coins=Math.max(1,Number(e.coins)||1)*count;points=coins*10;this.energy=Math.min(100,this.energy+count*2);
-      const queued=id&&this.queue.find(a=>a.comboId===id);
+      const queued=id&&[...this.queue,...this.deferredGifts].find(a=>a.comboId===id);
       if(queued){queued.combo=total;queued.at=at;}
       else if(!id||this.activeCombo!==id){this.queue=this.queue.filter(a=>a.kind!=='tap');this.queue.push({...technique,combo:total,comboId:id,by:p.name,user:e.user,gift:e.giftName||'GIFT',at});}
       this.spotlight={name:p.name,gift:e.giftName||'GIFT',combo:total,technique:technique.name,color:technique.color,at};
@@ -73,11 +95,12 @@ export class FighterEngine{
     }else if(e.type==='join'){this.notice={title:'WELCOME, FIGHTER',detail:p.name,at};}
     p.points+=points;p.coins+=coins;
     if(this.pk&&points){const b=this.battleSupporters.get(e.user)||{name:p.name,points:0,coins:0};b.name=p.name;b.points+=points;b.coins+=coins;this.battleSupporters.set(e.user,b);}
-    while(this.queue.length>18){const i=this.queue.findIndex(a=>a.kind==='tap');this.queue.splice(i<0?0:i,1);}
-    for(const [key,c] of this.combos)if(at-c.at>120000)this.combos.delete(key);
+    while(this.queue.length>18){const i=this.queue.findIndex(a=>a.kind==='tap');if(i>=0)this.queue.splice(i,1);else this.deferredGifts.push(this.queue.pop());}
+    for(const [key,c] of this.combos)if(at-c.at>120000&&key!==this.activeCombo&&![...this.queue,...this.deferredGifts].some(a=>a.comboId===key))this.combos.delete(key);
     for(const map of [this.supporters,this.battleSupporters])if(map.size>500){const ranked=[...map.entries()].sort((a,b)=>b[1].points-a[1].points);map.clear();for(const [key,value]of ranked.slice(0,400))map.set(key,value);}
   }
-  next(){const at=this.now();while(this.queue.length){const a=this.queue.shift();if(at-a.at<20000){if(a.kind==='tap')this.tapPending=0;this.activeCombo=a.comboId||null;return a;}}return null;}
+  next(){const at=this.now();while(this.queue.length||this.deferredGifts.length){while(this.queue.length<18&&this.deferredGifts.length)this.queue.push(this.deferredGifts.shift());const a=this.queue.shift();if(a.kind!=='tap'||at-a.at<20000){if(a.kind==='tap')this.tapPending=0;const c=a.comboId&&this.combos.get(a.comboId);a.emitted=c?.emitted||0;if(c)a.combo=c.total;if(a.kind!=='tap'&&a.emitted>=a.combo)continue;this.activeCombo=a.comboId||null;return a;}}return null;}
+  recordShots(a,emitted){if(a.comboId){const c=this.combos.get(a.comboId);if(c)c.emitted=Math.max(c.emitted||0,Math.min(c.total,emitted));}}
   complete(){this.activeCombo=null;}
   aura(){return this.connected&&this.pk?.scoresVerified&&this.now()-this.pk.receivedAt<60000?auraFor(this.pk.ownScore,this.pk.opponentScore):{level:0,strength:0,lead:0};}
   leaders(){return rank(this.pk?this.battleSupporters:this.supporters);}
