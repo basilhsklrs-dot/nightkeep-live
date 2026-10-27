@@ -135,7 +135,7 @@ export async function startServer(env = process.env) {
     res.setHeader('Cache-Control', 'no-store');
     if (path === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, version:'fighter-1.0', pkScoresVerified:Boolean(pkSnapshot?.scoresVerified), ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
+      res.end(JSON.stringify({ ok: true, version:'fighter-2.0', pkScoresVerified:Boolean(pkSnapshot?.scoresVerified), ...status, lastEventAt, uptime: Math.floor(process.uptime()) })); return;
     }
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       try { const html = await readFile(htmlPath); res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); res.end(html); }

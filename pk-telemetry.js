@@ -10,7 +10,7 @@ export function normalizePK(source,payload,hostId){
   const packet={type:'pk',phase:end?'end':start?'start':'update',source,battleId:String(d.battleId||settings?.battleId||''),scoresVerified:false};
   const duration=Number(settings?.duration);if(duration>0&&duration<3600)packet.duration=duration;
   const started=Number(settings?.startTimeMs);if(started>0&&Number.isSafeInteger(started))packet.startedAt=started;
-  if(end)return packet;
+  // End packets can carry final battleResult totals; parse them before returning.
   // Accept only 1v1 anchor totals, never the contribution lists of individual gifters.
   const armies=Array.isArray(d.armies)?Object.fromEntries(d.armies.map(x=>[x.key,x.value])):d.armies;
   let entries=Object.entries(armies||{}).map(([id,a])=>[String(a?.anchorIdStr||id),score(a?.hostscore)]);
@@ -24,3 +24,4 @@ export function normalizePK(source,payload,hostId){
   }
   return packet;
 }
+
