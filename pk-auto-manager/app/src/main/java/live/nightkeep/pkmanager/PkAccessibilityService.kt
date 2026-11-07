@@ -52,9 +52,12 @@ class PkAccessibilityService : AccessibilityService() {
         collect(root, all)
         val labels = all.flatMap { listOfNotNull(it.text?.toString(), it.contentDescription?.toString()) }
         // Never accept ambiguous generic "Accept": require explicit PK / co-host context.
-        val invitationContext = labels.any { containsAny(it, "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match") }
+        val invitationContext = labels.any { containsAny(it, "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match", "πρόσκληση", "invitation", "invited", "συνδιοργάνωση", "LIVE Match", "αγώνας LIVE") }
+        val hasAccept = all.any { node -> listOfNotNull(node.text?.toString(), node.contentDescription?.toString()).any { it.trim().equals("Αποδοχή", true) || it.trim().equals("Accept", true) } }
+        val hasDecline = labels.any { containsAny(it, "Απόρριψη", "Απόρριψε", "Decline", "Reject") }
+        val incomingInvite = hasAccept && (invitationContext || hasDecline)
         val activePk = labels.any { containsAny(it, "PK BATTLE", "LIVE Match in progress", "Αγώνας σε εξέλιξη") }
-        if (invitationContext) {
+        if (incomingInvite) {
             if (clickExact(all, listOf("Accept", "Αποδοχή", "Accept invite", "Accept invitation", "Αποδοχή πρόσκλησης", "Join", "Συμμετοχή"))) lastActionAt = now
             return
         }
