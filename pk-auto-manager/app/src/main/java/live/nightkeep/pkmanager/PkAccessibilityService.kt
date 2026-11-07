@@ -45,6 +45,9 @@ class PkAccessibilityService : AccessibilityService() {
                 remoteAcceptLabels = terms("acceptLabels")
                 remoteEnabled = obj.optBoolean("autoAcceptEnabled", true)
                 retryCooldownMs = obj.optLong("retryCooldownSeconds", 60L).coerceIn(30L, 600L) * 1000L
+                entryTapEnabled = obj.optBoolean("entryTapEnabled", true)
+                entryTapX = obj.optDouble("entryTapX", 0.055).toFloat().coerceIn(0.02f, 0.25f)
+                entryTapY = obj.optDouble("entryTapY", 0.855).toFloat().coerceIn(0.60f, 0.95f)
             } catch (_: Exception) { /* Offline: keep last known configuration and built-in rules. */ }
         }
     }
@@ -53,7 +56,10 @@ class PkAccessibilityService : AccessibilityService() {
     private var lastRetryAt = 0L
     private var lastEntryAt = 0L
     @Volatile private var retryCooldownMs = 60_000L
-    private val entryCooldownMs = 45_000L
+    private val entryCooldownMs = 60_000L
+    @Volatile private var entryTapEnabled = true
+    @Volatile private var entryTapX = 0.055f
+    @Volatile private var entryTapY = 0.855f
     private var enabled = false
     private val packageNameTikTok = "com.zhiliaoapp.musically"
     private val cooldownMs = 2_500L
@@ -116,11 +122,28 @@ class PkAccessibilityService : AccessibilityService() {
         // Entry point is a pair of interlinked circles. Only use its accessible label;
         // unlabeled icon coordinates are unsafe across tablet orientations and layouts.
         val entry = labels.any { containsAny(it, "Γρήγορη πρόσκληση", "Quick invite", "Quick invitation") }
+        val liveUi = labels.any { containsAny(it, "Σίγαση μικροφώνου", "Mute microphone", "LIVE") }
+        val cohostConnected = labels.any { containsAny(it, "Έναρξη αγώνα", "Start match", "Match", "Συνδιοργανωτής") }
+        val discoveryVisible = labels.any { containsAny(it, "Δεν βρέθηκαν κατάλληλοι δημιουργοί", "Προτεινόμενοι δημιουργοί", "Προσκαλέστε άλλους δημιουργούς", "Δοκιμάστε ξανά") }
         if (entry && now - lastEntryAt > entryCooldownMs) {
             if (clickExact(all, listOf("Γρήγορη πρόσκληση", "Quick invite", "Quick invitation"))) {
                 lastEntryAt = now
                 lastActionAt = now
                 return
+            }
+        }
+
+        // Screen-position fallback for the unlabeled interlinked-circles control.
+        // Only on the TikTok LIVE host screen, never during a dialog or a match.
+        if (!entry && entryTapEnabled && liveUi && !cohostConnected && !discoveryVisible && !incomingInvite && now - lastEntryAt > entryCooldownMs) {
+            val screen = Rect()
+            root.getBoundsInScreen(screen)
+            if (screen.width() > 400 && screen.height() > 400) {
+                if (tapAt(screen.left + screen.width() * entryTapX, screen.top + screen.height() * entryTapY)) {
+                    lastEntryAt = now
+                    lastActionAt = now
+                    return
+                }
             }
         }
 
@@ -141,6 +164,11 @@ class PkAccessibilityService : AccessibilityService() {
         if (depth > 24 || out.size > 500) return
         out.add(node)
         for (i in 0 until node.childCount) node.getChild(i)?.let { collect(it, out, depth + 1) }
+    }
+
+    private fun tapAt(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        return dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 75)).build(), null, null)
     }
 
     private fun clickExact(nodes: List<AccessibilityNodeInfo>, names: List<String>): Boolean {
