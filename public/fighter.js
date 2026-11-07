@@ -123,6 +123,8 @@ function reconcileBattleTransition(){
  if(active!==lastBattleActive||(active&&lastBattleKey!==null&&key!==lastBattleKey)){
   clearTransientBattleVisuals();
   last=performance.now();
+  // TikTok co-host transitions can resize/recompose the host surface without firing resize.
+  requestAnimationFrame(()=>{resize();renderer.setSize(innerWidth,innerHeight,false);});
  }
  lastBattleActive=active;lastBattleKey=key;
 }
@@ -132,7 +134,9 @@ renderer.domElement.addEventListener('webglcontextlost',e=>{
 renderer.domElement.addEventListener('webglcontextrestored',()=>{
  renderSuspended=false;clearTransientBattleVisuals();last=performance.now();resize();
 });
-document.addEventListener('visibilitychange',()=>{last=performance.now();if(!document.hidden)reconcileBattleTransition();});
+document.addEventListener('visibilitychange',()=>{last=performance.now();if(!document.hidden){resize();reconcileBattleTransition();}});
+let previousViewportWidth=innerWidth,previousViewportHeight=innerHeight;
+setInterval(()=>{if(document.hidden)return;const w=innerWidth,h=innerHeight;if(w!==previousViewportWidth||h!==previousViewportHeight){previousViewportWidth=w;previousViewportHeight=h;resize();}else if(renderer.domElement.width===0||renderer.domElement.height===0){resize();}},1200);
 addEventListener('pageshow',()=>{last=performance.now();resize();reconcileBattleTransition();});
 function draw(now){
  requestAnimationFrame(draw);
