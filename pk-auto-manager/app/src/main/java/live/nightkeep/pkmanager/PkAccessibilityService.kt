@@ -22,6 +22,7 @@ class PkAccessibilityService : AccessibilityService() {
     private val outgoingCooldownMs = 90_000L
     private val tick = object : Runnable {
         override fun run() {
+            enabled = getSharedPreferences("pk", MODE_PRIVATE).getBoolean("enabled", false)
             if (enabled) inspect()
             handler.postDelayed(this, 1800)
         }
