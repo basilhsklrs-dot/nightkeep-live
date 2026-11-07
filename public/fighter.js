@@ -102,7 +102,42 @@ function showResult(result){
  panel.querySelector('h1').style.color=result.outcome==='win'?'#ffe1a0':'#b9d8ff';$('#result-score').textContent=result.ownScore===null?'Final score not received':`${result.ownScore.toLocaleString()} — ${result.opponentScore.toLocaleString()}`;
  const podium=$('#podium');podium.replaceChildren();for(let i=0;i<3;i++){const p=result.leaders[i],card=document.createElement('div'),label=document.createElement('small'),name=document.createElement('b'),detail=document.createElement('span');label.textContent=i===0?'01 · TEAM MVP':`0${i+1} · TOP ALLY`;name.textContent=p?.name||'TEAM SUPPORT';detail.textContent=p?(p.coins?`${p.coins.toLocaleString()} gift coins`:'TAP POWER'):'THANK YOU';card.append(label,name,detail);podium.append(card);}
 }
+
+// PK transitions must never leave the previous attack, result overlay or aura pose frozen.
+let lastBattleKey=null,lastBattleActive=false,renderSuspended=false;
+function clearTransientBattleVisuals(){
+ attack=null;attackAt=0;shake=0;auraStrength=0;level=0;
+ for(const selector of ['#technique','#combo','#donor','#welcome','#notice','#transformation','#finisher','#result']){
+  document.querySelector(selector)?.classList.remove('show');
+ }
+ charge.material.opacity=0;
+ hero.position.set(-.42,0,0);hero.rotation.y=1.08;body.rotation.z=0;
+ left.joint.rotation.z=0;right.joint.rotation.z=0;
+ for(const f of [...fx])removeFX(f);
+ fx.length=0;
+}
+function reconcileBattleTransition(){
+ const pk=engine.pk;
+ const active=Boolean(pk&&!engine.activeResult());
+ const key=active?String(pk.battleId||pk.id||pk.startedAt||'active'):null;
+ if(active!==lastBattleActive||(active&&lastBattleKey!==null&&key!==lastBattleKey)){
+  clearTransientBattleVisuals();
+  last=performance.now();
+ }
+ lastBattleActive=active;lastBattleKey=key;
+}
+renderer.domElement.addEventListener('webglcontextlost',e=>{
+ e.preventDefault();renderSuspended=true;status('3D RESTORING');
+});
+renderer.domElement.addEventListener('webglcontextrestored',()=>{
+ renderSuspended=false;clearTransientBattleVisuals();last=performance.now();resize();
+});
+document.addEventListener('visibilitychange',()=>{last=performance.now();if(!document.hidden)reconcileBattleTransition();});
+addEventListener('pageshow',()=>{last=performance.now();resize();reconcileBattleTransition();});
 function draw(now){
+ requestAnimationFrame(draw);
+ if(renderSuspended||document.hidden){last=now;return;}
+ reconcileBattleTransition();
  const dt=Math.min(.05,(now-last)/1000);last=now;const t=now/1000,result=engine.activeResult(),victory=result?.outcome==='win';
  if(result&&result.at!==lastResult)showResult(result);if(!result)$('#result').classList.remove('show');
  if(!attack&&!result){const a=engine.next();if(a)begin(a,now);}
@@ -157,7 +192,7 @@ function draw(now){
  // Gift attribution survives the motion briefly, but never overwrites an attack in progress.
  if(!attack&&engine.spotlight&&Date.now()-engine.spotlight.at>4500)$('#donor').classList.remove('show');
  shake*=Math.max(0,1-dt*9);camera.position.copy(baseCamera);camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;
- renderer.render(scene,camera);if(now-lastHud>200){hud();lastHud=now;}requestAnimationFrame(draw);
+ renderer.render(scene,camera);if(now-lastHud>200){hud();lastHud=now;}
 }
 function hud(){
  const pk=engine.pk,pkLayout=Boolean(pk)||params.get('pk')==='1';if(document.body.classList.contains('pk-layout')!==pkLayout){document.body.classList.toggle('pk-layout',pkLayout);resize();}
