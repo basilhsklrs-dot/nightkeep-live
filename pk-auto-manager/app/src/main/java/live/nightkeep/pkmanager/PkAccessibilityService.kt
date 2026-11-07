@@ -56,6 +56,7 @@ class PkAccessibilityService : AccessibilityService() {
     private var lastRetryAt = 0L
     private var lastEntryAt = 0L
     private var lastMatchAt = 0L
+    private var lastGlovesAt = 0L
     @Volatile private var retryCooldownMs = 60_000L
     private val entryCooldownMs = 60_000L
     @Volatile private var entryTapEnabled = true
@@ -114,6 +115,18 @@ class PkAccessibilityService : AccessibilityService() {
         if (matchContext && now - lastMatchAt > 20_000L) {
             if (clickExact(all, listOf("Ανάληψη", "Έναρξη αγώνα", "Start match", "Start Match", "Πρόσκληση σε αγώνα", "Invite to match", "Αποστολή πρόσκλησης αγώνα"))) {
                 lastMatchAt = now
+                lastActionAt = now
+                return
+            }
+        }
+
+        // After co-hosting starts, try the labeled boxing-gloves PK entry point.
+        // Do not guess its screen coordinates: TikTok moves this control by layout.
+        val connectedCohost = labels.any { containsAny(it, "Συνδιοργανωτής", "Συνδιοργάνωση σε εξέλιξη", "Co-hosting", "Co-host connected") }
+        val glovesVisible = labels.any { containsAny(it, "Αγώνας με συνδιοργανωτή", "Έναρξη αγώνα LIVE", "LIVE Match", "PK battle", "Αγώνας PK") }
+        if (connectedCohost && glovesVisible && now - lastGlovesAt > 30_000L) {
+            if (clickExact(all, listOf("Αγώνας με συνδιοργανωτή", "Έναρξη αγώνα LIVE", "LIVE Match", "PK battle", "Αγώνας PK"))) {
+                lastGlovesAt = now
                 lastActionAt = now
                 return
             }
