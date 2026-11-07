@@ -135,6 +135,19 @@ renderer.domElement.addEventListener('webglcontextrestored',()=>{
  renderSuspended=false;clearTransientBattleVisuals();last=performance.now();resize();
 });
 document.addEventListener('visibilitychange',()=>{last=performance.now();if(!document.hidden){resize();reconcileBattleTransition();}});
+// TikTok sometimes keeps showing an old GPU layer after switching co-host layout.
+// Recommit the canvas compositing layer periodically without restarting WebGL or LIVE.
+let captureRepaintPhase=0;
+function refreshCaptureLayer(){
+ if(renderSuspended)return;
+ const canvas=renderer.domElement;
+ captureRepaintPhase^=1;
+ canvas.style.transform=captureRepaintPhase?'translateZ(0)':'translate3d(0,0,0.01px)';
+ canvas.style.willChange='transform';
+}
+setInterval(refreshCaptureLayer,900);
+addEventListener('focus',refreshCaptureLayer);
+document.addEventListener('visibilitychange',refreshCaptureLayer);
 let previousViewportWidth=innerWidth,previousViewportHeight=innerHeight;
 setInterval(()=>{if(document.hidden)return;const w=innerWidth,h=innerHeight;if(w!==previousViewportWidth||h!==previousViewportHeight){previousViewportWidth=w;previousViewportHeight=h;resize();}else if(renderer.domElement.width===0||renderer.domElement.height===0){resize();}},1200);
 addEventListener('pageshow',()=>{last=performance.now();resize();reconcileBattleTransition();});
