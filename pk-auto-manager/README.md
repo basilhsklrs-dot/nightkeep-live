@@ -16,3 +16,6 @@ When idle, search for the official Co-host menu, choose an eligible creator, and
 
 ## Current status
 Design scaffold only. There is no tested Android Accessibility implementation or installable APK in this repository. Android package/UI hierarchy inspection and on-device testing are required before shipping.
+
+
+Build note: v0.3 co-host navigation test build; screen-position actions require verification on the target tablet.
