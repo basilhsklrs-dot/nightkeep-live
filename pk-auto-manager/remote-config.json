@@ -13,5 +13,8 @@
     "Accept",
     "Αποδοχή πρόσκλησης"
   ],
-  "retryCooldownSeconds": 60
+  "retryCooldownSeconds": 60,
+  "entryTapEnabled": true,
+  "entryTapX": 0.055,
+  "entryTapY": 0.855
 }
