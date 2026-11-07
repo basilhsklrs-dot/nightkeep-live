@@ -139,8 +139,8 @@ let previousViewportWidth=innerWidth,previousViewportHeight=innerHeight;
 setInterval(()=>{if(document.hidden)return;const w=innerWidth,h=innerHeight;if(w!==previousViewportWidth||h!==previousViewportHeight){previousViewportWidth=w;previousViewportHeight=h;resize();}else if(renderer.domElement.width===0||renderer.domElement.height===0){resize();}},1200);
 addEventListener('pageshow',()=>{last=performance.now();resize();reconcileBattleTransition();});
 let lastFrameRenderedAt=performance.now();
-function draw(now){
- requestAnimationFrame(draw);
+function draw(now, fromTimer=false){
+ if(!fromTimer)requestAnimationFrame(draw);
  if(renderSuspended){last=now;return;}
  // TikTok co-host can mark the capture page hidden while still displaying its frames.
  // Continue drawing; the watchdog below also recovers from throttled animation frames.
@@ -243,4 +243,10 @@ if(demo){
   if(phase===0)cycle++;
  },3000);
 }else connect();
+// TikTok co-host capture may throttle requestAnimationFrame even while its preview stays visible.
+// Run a bounded fallback animation tick only when frames have stopped arriving.
+setInterval(()=>{
+ const now=performance.now();
+ if(!renderSuspended && now-lastFrameRenderedAt>180) draw(now,true);
+},120);
 requestAnimationFrame(draw);
