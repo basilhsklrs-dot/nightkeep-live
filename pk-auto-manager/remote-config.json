@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "autoAcceptEnabled": true,
+  "invitationTerms": [
+    "Αγώνας συγκεκριμένου Δώρου",
+    "Πρόσκληση για αγώνα",
+    "Πρόσκληση συνδιοργάνωσης",
+    "LIVE Match invitation",
+    "co-host invitation"
+  ],
+  "acceptLabels": [
+    "Αποδοχή",
+    "Accept",
+    "Αποδοχή πρόσκλησης"
+  ]
+}
