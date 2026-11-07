@@ -112,7 +112,7 @@ class PkAccessibilityService : AccessibilityService() {
         // Never tap generic Start buttons without an identified match context.
         val matchContext = labels.any { containsAny(it, "Αγώνας LIVE", "LIVE Match", "Αγώνας PK", "PK Match", "Έναρξη αγώνα") }
         if (matchContext && now - lastMatchAt > 20_000L) {
-            if (clickExact(all, listOf("Έναρξη αγώνα", "Start match", "Start Match", "Πρόσκληση σε αγώνα", "Invite to match", "Αποστολή πρόσκλησης αγώνα"))) {
+            if (clickExact(all, listOf("Ανάληψη", "Έναρξη αγώνα", "Start match", "Start Match", "Πρόσκληση σε αγώνα", "Invite to match", "Αποστολή πρόσκλησης αγώνα"))) {
                 lastMatchAt = now
                 lastActionAt = now
                 return
