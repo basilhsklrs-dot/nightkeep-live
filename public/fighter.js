@@ -138,9 +138,14 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(!doc
 let previousViewportWidth=innerWidth,previousViewportHeight=innerHeight;
 setInterval(()=>{if(document.hidden)return;const w=innerWidth,h=innerHeight;if(w!==previousViewportWidth||h!==previousViewportHeight){previousViewportWidth=w;previousViewportHeight=h;resize();}else if(renderer.domElement.width===0||renderer.domElement.height===0){resize();}},1200);
 addEventListener('pageshow',()=>{last=performance.now();resize();reconcileBattleTransition();});
+let lastFrameRenderedAt=performance.now();
 function draw(now){
  requestAnimationFrame(draw);
- if(renderSuspended||document.hidden){last=now;return;}
+ if(renderSuspended){last=now;return;}
+ // TikTok co-host can mark the capture page hidden while still displaying its frames.
+ // Continue drawing; the watchdog below also recovers from throttled animation frames.
+ if(now-lastFrameRenderedAt<12)return;
+ lastFrameRenderedAt=now;
  reconcileBattleTransition();
  const dt=Math.min(.05,(now-last)/1000);last=now;const t=now/1000,result=engine.activeResult(),victory=result?.outcome==='win';
  if(result&&result.at!==lastResult)showResult(result);if(!result)$('#result').classList.remove('show');
