@@ -3,6 +3,8 @@ on:
   push:
     branches: [feature/aura-pk-manager]
     paths: ['pk-auto-manager/**', '.github/workflows/build-aura-pk-apk.yml']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   build:
