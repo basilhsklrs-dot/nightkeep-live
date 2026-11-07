@@ -18,7 +18,7 @@ class PkAccessibilityService : AccessibilityService() {
     private var lastInviteAt = 0L
     private var enabled = false
     private val packageNameTikTok = "com.zhiliaoapp.musically"
-    private val cooldownMs = 12_000L
+    private val cooldownMs = 2_500L
     private val outgoingCooldownMs = 90_000L
     private val tick = object : Runnable {
         override fun run() {
@@ -50,12 +50,12 @@ class PkAccessibilityService : AccessibilityService() {
 
         val all = mutableListOf<AccessibilityNodeInfo>()
         collect(root, all)
-        val labels = all.mapNotNull { it.text?.toString() ?: it.contentDescription?.toString() }
+        val labels = all.flatMap { listOfNotNull(it.text?.toString(), it.contentDescription?.toString()) }
         // Never accept ambiguous generic "Accept": require explicit PK / co-host context.
-        val invitationContext = labels.any { containsAny(it, "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα") }
+        val invitationContext = labels.any { containsAny(it, "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match") }
         val activePk = labels.any { containsAny(it, "PK BATTLE", "LIVE Match in progress", "Αγώνας σε εξέλιξη") }
         if (invitationContext) {
-            if (clickExact(all, listOf("Accept", "Αποδοχή"))) lastActionAt = now
+            if (clickExact(all, listOf("Accept", "Αποδοχή", "Accept invite", "Accept invitation", "Αποδοχή πρόσκλησης", "Join", "Συμμετοχή"))) lastActionAt = now
             return
         }
         if (activePk) return
@@ -81,13 +81,18 @@ class PkAccessibilityService : AccessibilityService() {
 
     private fun clickExact(nodes: List<AccessibilityNodeInfo>, names: List<String>): Boolean {
         val candidates = nodes.filter { n ->
-            val value = n.text?.toString() ?: n.contentDescription?.toString() ?: ""
-            names.any { value.equals(it, ignoreCase = true) }
+            val values = listOfNotNull(n.text?.toString(), n.contentDescription?.toString())
+            values.any { value -> names.any { value.trim().equals(it, ignoreCase = true) } }
         }
         // Multiple matching controls are ambiguous: fail closed.
-        if (candidates.size != 1) return false
-        var target: AccessibilityNodeInfo? = candidates.first()
-        while (target != null && !target.isClickable) target = target.parent
-        return target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+        if (candidates.isEmpty()) return false
+        // Multiple accessible nodes can describe the same underlying button.
+        val uniqueTargets = candidates.map { node ->
+            var target: AccessibilityNodeInfo? = node
+            while (target != null && !target.isClickable) target = target.parent
+            target
+        }.filterNotNull().distinctBy { it.hashCode() }
+        if (uniqueTargets.size != 1) return false
+        return uniqueTargets.first().performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 }
