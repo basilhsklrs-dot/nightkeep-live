@@ -12,5 +12,6 @@
     "Αποδοχή",
     "Accept",
     "Αποδοχή πρόσκλησης"
-  ]
+  ],
+  "retryCooldownSeconds": 60
 }
