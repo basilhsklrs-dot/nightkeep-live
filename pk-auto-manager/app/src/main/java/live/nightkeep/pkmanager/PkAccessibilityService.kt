@@ -49,6 +49,10 @@ class PkAccessibilityService : AccessibilityService() {
     }
     private var lastActionAt = 0L
     private var lastInviteAt = 0L
+    private var lastRetryAt = 0L
+    private var lastEntryAt = 0L
+    private val retryCooldownMs = 20_000L
+    private val entryCooldownMs = 45_000L
     private var enabled = false
     private val packageNameTikTok = "com.zhiliaoapp.musically"
     private val cooldownMs = 2_500L
@@ -96,6 +100,28 @@ class PkAccessibilityService : AccessibilityService() {
             return
         }
         if (activePk) return
+
+        // TikTok quick-invite discovery: retry only after the explicit no-creator state.
+        val noCreators = labels.any { containsAny(it, "Δεν βρέθηκαν κατάλληλοι δημιουργοί", "No suitable creators found", "No creators found") }
+        val retryVisible = labels.any { containsAny(it, "Δοκιμάστε ξανά", "Try again", "Retry") }
+        if (noCreators && retryVisible && now - lastRetryAt > retryCooldownMs) {
+            if (clickExact(all, listOf("Δοκιμάστε ξανά", "Try again", "Retry"))) {
+                lastRetryAt = now
+                lastActionAt = now
+            }
+            return
+        }
+
+        // Entry point is a pair of interlinked circles. Only use its accessible label;
+        // unlabeled icon coordinates are unsafe across tablet orientations and layouts.
+        val entry = labels.any { containsAny(it, "Γρήγορη πρόσκληση", "Quick invite", "Quick invitation") }
+        if (entry && now - lastEntryAt > entryCooldownMs) {
+            if (clickExact(all, listOf("Γρήγορη πρόσκληση", "Quick invite", "Quick invitation"))) {
+                lastEntryAt = now
+                lastActionAt = now
+                return
+            }
+        }
 
         // Only invite when a verified co-host screen is visible.
         val cohostScreen = labels.any { containsAny(it, "Συνδιοργάνωση με δημιουργούς", "Co-host with creators") }
