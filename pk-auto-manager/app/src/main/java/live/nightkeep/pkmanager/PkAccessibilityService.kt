@@ -55,6 +55,7 @@ class PkAccessibilityService : AccessibilityService() {
     private var lastInviteAt = 0L
     private var lastRetryAt = 0L
     private var lastEntryAt = 0L
+    private var lastMatchAt = 0L
     @Volatile private var retryCooldownMs = 60_000L
     private val entryCooldownMs = 60_000L
     @Volatile private var entryTapEnabled = true
@@ -107,6 +108,16 @@ class PkAccessibilityService : AccessibilityService() {
             return
         }
         if (activePk) return
+        // After a co-host joins, prefer explicitly labeled match controls.
+        // Never tap generic Start buttons without an identified match context.
+        val matchContext = labels.any { containsAny(it, "Αγώνας LIVE", "LIVE Match", "Αγώνας PK", "PK Match", "Έναρξη αγώνα") }
+        if (matchContext && now - lastMatchAt > 20_000L) {
+            if (clickExact(all, listOf("Έναρξη αγώνα", "Start match", "Start Match", "Πρόσκληση σε αγώνα", "Invite to match", "Αποστολή πρόσκλησης αγώνα"))) {
+                lastMatchAt = now
+                lastActionAt = now
+                return
+            }
+        }
 
         // TikTok quick-invite discovery: retry only after the explicit no-creator state.
         val noCreators = labels.any { containsAny(it, "Δεν βρέθηκαν κατάλληλοι δημιουργοί", "No suitable creators found", "No creators found") }
