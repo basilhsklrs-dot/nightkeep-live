@@ -9,6 +9,9 @@ import android.os.SystemClock
 import android.graphics.Path
 import android.graphics.Rect
 import android.accessibilityservice.GestureDescription
+import java.net.URL
+import java.util.concurrent.Executors
+import org.json.JSONObject
 
 /**
  * Experimental UI-only companion. Never claims TikTok API privileges.
@@ -17,6 +20,33 @@ import android.accessibilityservice.GestureDescription
  */
 class PkAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
+    private val configExecutor = Executors.newSingleThreadExecutor()
+    @Volatile private var remoteInviteTerms: List<String> = emptyList()
+    @Volatile private var remoteAcceptLabels: List<String> = emptyList()
+    @Volatile private var remoteEnabled = true
+    private var lastConfigFetchAt = 0L
+    private val configUrl = "https://raw.githubusercontent.com/basilhsklrs-dot/nightkeep-live/main/pk-auto-manager/remote-config.json"
+    private fun refreshRemoteConfig() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastConfigFetchAt < 60_000L) return
+        lastConfigFetchAt = now
+        configExecutor.execute {
+            try {
+                val conn = URL(configUrl).openConnection().apply { connectTimeout = 4500; readTimeout = 4500; useCaches = false }
+                val json = conn.getInputStream().bufferedReader().use { it.readText() }
+                if (json.length > 16_384) return@execute
+                val obj = JSONObject(json)
+                if (obj.optInt("schema", 0) != 1) return@execute
+                fun terms(key: String): List<String> {
+                    val a = obj.optJSONArray(key) ?: return emptyList()
+                    return (0 until minOf(a.length(), 40)).mapNotNull { i -> a.optString(i).trim().takeIf { it.length in 2..100 } }
+                }
+                remoteInviteTerms = terms("invitationTerms")
+                remoteAcceptLabels = terms("acceptLabels")
+                remoteEnabled = obj.optBoolean("autoAcceptEnabled", true)
+            } catch (_: Exception) { /* Offline: keep last known configuration and built-in rules. */ }
+        }
+    }
     private var lastActionAt = 0L
     private var lastInviteAt = 0L
     private var enabled = false
@@ -26,7 +56,7 @@ class PkAccessibilityService : AccessibilityService() {
     private val tick = object : Runnable {
         override fun run() {
             enabled = getSharedPreferences("pk", MODE_PRIVATE).getBoolean("enabled", false)
-            if (enabled) inspect()
+            if (enabled) { refreshRemoteConfig(); inspect() }
             handler.postDelayed(this, 1800)
         }
     }
@@ -42,6 +72,7 @@ class PkAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
     override fun onDestroy() {
         handler.removeCallbacks(tick)
+        configExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -55,13 +86,13 @@ class PkAccessibilityService : AccessibilityService() {
         collect(root, all)
         val labels = all.flatMap { listOfNotNull(it.text?.toString(), it.contentDescription?.toString()) }
         // Never accept ambiguous generic "Accept": require explicit PK / co-host context.
-        val invitationContext = labels.any { containsAny(it, "Αγώνας συγκεκριμένου Δώρου", "αγώνας συγκεκριμένου δώρου", "Specific Gift Match", "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match", "πρόσκληση", "invitation", "invited", "συνδιοργάνωση", "LIVE Match", "αγώνας LIVE") }
+        val invitationContext = labels.any { containsAny(it, "Αγώνας συγκεκριμένου Δώρου", "αγώνας συγκεκριμένου δώρου", "Specific Gift Match", "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match", "πρόσκληση", "invitation", "invited", "συνδιοργάνωση", "LIVE Match", "αγώνας LIVE") || remoteInviteTerms.any { term -> it.contains(term, ignoreCase = true) } }
         val hasAccept = all.any { node -> listOfNotNull(node.text?.toString(), node.contentDescription?.toString()).any { it.trim().equals("Αποδοχή", true) || it.trim().equals("Accept", true) } }
         val hasDecline = labels.any { containsAny(it, "Απόρριψη", "Απόρριψε", "Decline", "Reject") }
         val incomingInvite = hasAccept && (invitationContext || hasDecline)
         val activePk = labels.any { containsAny(it, "PK BATTLE", "LIVE Match in progress", "Αγώνας σε εξέλιξη") }
-        if (incomingInvite) {
-            if (clickExact(all, listOf("Accept", "Αποδοχή", "Accept invite", "Accept invitation", "Αποδοχή πρόσκλησης", "Join", "Συμμετοχή"))) lastActionAt = now
+        if (incomingInvite && remoteEnabled) {
+            if (clickExact(all, listOf("Accept", "Αποδοχή", "Accept invite", "Accept invitation", "Αποδοχή πρόσκλησης", "Join", "Συμμετοχή") + remoteAcceptLabels)) lastActionAt = now
             return
         }
         if (activePk) return
