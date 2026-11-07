@@ -6,6 +6,9 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.graphics.Path
+import android.graphics.Rect
+import android.accessibilityservice.GestureDescription
 
 /**
  * Experimental UI-only companion. Never claims TikTok API privileges.
@@ -52,7 +55,7 @@ class PkAccessibilityService : AccessibilityService() {
         collect(root, all)
         val labels = all.flatMap { listOfNotNull(it.text?.toString(), it.contentDescription?.toString()) }
         // Never accept ambiguous generic "Accept": require explicit PK / co-host context.
-        val invitationContext = labels.any { containsAny(it, "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match", "πρόσκληση", "invitation", "invited", "συνδιοργάνωση", "LIVE Match", "αγώνας LIVE") }
+        val invitationContext = labels.any { containsAny(it, "Αγώνας συγκεκριμένου Δώρου", "αγώνας συγκεκριμένου δώρου", "Specific Gift Match", "PK invitation", "LIVE Match invitation", "Πρόσκληση συνδιοργάνωσης", "Πρόσκληση για αγώνα", "invited you to", "σας προσκάλεσε", "σας προσκαλεί", "πρόσκληση για συνδιοργάνωση", "πρόσκληση αγώνα", "invitation to co-host", "invitation to match", "match invitation", "co-host invitation", "Πρόσκληση σε LIVE Match", "πρόσκληση", "invitation", "invited", "συνδιοργάνωση", "LIVE Match", "αγώνας LIVE") }
         val hasAccept = all.any { node -> listOfNotNull(node.text?.toString(), node.contentDescription?.toString()).any { it.trim().equals("Αποδοχή", true) || it.trim().equals("Accept", true) } }
         val hasDecline = labels.any { containsAny(it, "Απόρριψη", "Απόρριψε", "Decline", "Reject") }
         val incomingInvite = hasAccept && (invitationContext || hasDecline)
@@ -95,7 +98,16 @@ class PkAccessibilityService : AccessibilityService() {
             while (target != null && !target.isClickable) target = target.parent
             target
         }.filterNotNull().distinctBy { it.hashCode() }
-        if (uniqueTargets.size != 1) return false
-        return uniqueTargets.first().performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        if (uniqueTargets.size == 1 && uniqueTargets.first().performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+        // Some TikTok dialogs expose text but not an actionable parent. Tap its actual on-screen bounds.
+        val visible = candidates.map { node ->
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            bounds
+        }.filter { !it.isEmpty && it.width() > 8 && it.height() > 8 }.distinctBy { "${it.centerX()},${it.centerY()}" }
+        if (visible.size != 1) return false
+        val b = visible.first()
+        val path = Path().apply { moveTo(b.exactCenterX(), b.exactCenterY()) }
+        return dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 70)).build(), null, null)
     }
 }
