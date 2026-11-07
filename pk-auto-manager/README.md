@@ -19,3 +19,5 @@ Design scaffold only. There is no tested Android Accessibility implementation or
 
 
 Build note: v0.3 co-host navigation test build; screen-position actions require verification on the target tablet.
+
+CI validation for v0.3 APK packaging.
