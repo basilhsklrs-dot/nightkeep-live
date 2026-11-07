@@ -44,6 +44,7 @@ class PkAccessibilityService : AccessibilityService() {
                 remoteInviteTerms = terms("invitationTerms")
                 remoteAcceptLabels = terms("acceptLabels")
                 remoteEnabled = obj.optBoolean("autoAcceptEnabled", true)
+                retryCooldownMs = obj.optLong("retryCooldownSeconds", 60L).coerceIn(30L, 600L) * 1000L
             } catch (_: Exception) { /* Offline: keep last known configuration and built-in rules. */ }
         }
     }
@@ -51,7 +52,7 @@ class PkAccessibilityService : AccessibilityService() {
     private var lastInviteAt = 0L
     private var lastRetryAt = 0L
     private var lastEntryAt = 0L
-    private val retryCooldownMs = 20_000L
+    @Volatile private var retryCooldownMs = 60_000L
     private val entryCooldownMs = 45_000L
     private var enabled = false
     private val packageNameTikTok = "com.zhiliaoapp.musically"
